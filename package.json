@@ -1,0 +1,36 @@
+{
+  "name": "agentflux",
+  "version": "0.2.0",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "type": "module",
+  "description": "A local-first workspace for data, visual workflows and AI models.",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": {
+    "dev": "concurrently -k \"node --watch server/index.mjs\" \"vite --host 127.0.0.1\"",
+    "build": "vite build",
+    "start": "node server/index.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/manrope": "^5.2.8",
+    "@xyflow/react": "^12.12.0",
+    "csv-parse": "^6.1.0",
+    "exceljs": "^4.4.0",
+    "express": "^5.3.0",
+    "lucide-react": "^0.468.0",
+    "mammoth": "^1.13.0",
+    "multer": "^2.0.2",
+    "pdf-parse": "^2.4.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.2"
+  }
+}
