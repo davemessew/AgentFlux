@@ -1,0 +1,13 @@
+node_modules
+dist
+data
+.git
+artifacts
+*.log
+.env
+.env.*
+!.env.example
+docs
+README.md
+PRODUCT.md
+DESIGN.md
