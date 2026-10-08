@@ -1,47 +1,39 @@
-# Betrieb und Konfiguration
+# Operations
 
-## Laufzeit
+## Configuration
 
-| Variable | Standard | Bedeutung |
+| Variable | Default | Purpose |
 | --- | --- | --- |
-| `HOST` | `127.0.0.1` | Native Bind-Adresse; im Container `0.0.0.0` |
-| `PORT` | `4310` | HTTP-Port |
-| `AGENTFLUX_DATA_DIR` | `data` im Projekt | SQLite, Schlüssel und Posteingang; im Container `/app/data` |
-| `AGENTFLUX_IMPORT_ROOTS` | leer | Zusätzliche freigegebene Ordner, mit Semikolon getrennt |
-| `AGENTFLUX_ALLOWED_HOSTS` | leer | Zusätzliche zulässige Hostnamen, mit Komma getrennt; keine Zugangskontrolle |
+| `HOST` | `127.0.0.1` | Bind address; `0.0.0.0` in Docker |
+| `PORT` | `4310` | HTTP port |
+| `AGENTFLUX_DATA_DIR` | `data` | Database, key and inbox; `/app/data` in Docker |
+| `AGENTFLUX_IMPORT_ROOTS` | empty | Allowed directories, separated by semicolons |
+| `AGENTFLUX_ALLOWED_HOSTS` | empty | Extra hostnames, separated by commas; not authentication |
 
-Die Compose-Datei verwendet ein benanntes Volume. Sein Zielverzeichnis im Image gehört dem Benutzer `node`. Wer stattdessen einen eigenen Host-Ordner einbindet, muss ihn für UID/GID 1000 schreibbar machen. Zusätzliche erlaubte Hostnamen schützen den Dienst nicht vor unbefugtem Zugriff.
+Compose uses a named volume. For a bind mount, make the data directory writable by UID/GID 1000.
 
-## Programm-Anbindungen
+## Programs
 
-Programme laufen auf demselben System wie der AgentFlux-Server. Bei Docker müssen sie im Container vorhanden und unter Linux lauffähig sein. Windows-Programme auf dem Host lassen sich darüber nicht direkt starten.
-
-Eine selbst angelegte Datei `data/programs.json` ersetzt die eingebaute Demo-Freigabeliste. Für die Containerinstallation kann sie beispielsweise enthalten:
+Programs run on the AgentFlux server. In Docker, executables must exist inside the Linux container. A custom `data/programs.json` replaces the built-in example allowlist:
 
 ```json
 {
   "demo-export": {
-    "name": "Beispiel-Export",
+    "name": "Example export",
     "executable": "/usr/local/bin/node",
     "args": ["/app/examples/export-records.mjs"]
   }
 }
 ```
 
-Bei nativer Ausführung absolute Pfade zur lokalen Node-Installation und zum Skript verwenden. Der Wert `programId` der Anbindung verweist auf den Schlüssel in dieser Datei, hier `demo-export`. In den Einstellungen müssen Programm-Anbindungen aktiviert sein.
+Use absolute local paths for a native installation. Set the connection's `programId` to the entry key and enable program connections in settings.
 
-Die Freigabeliste legt ausführbare Datei und Argumente fest. AgentFlux startet sie mit `shell: false`, schreibt die Eingabedatensätze als JSON nach stdin und liest JSON oder Text aus stdout. Arbeitsverzeichnis ist das Datenverzeichnis. Nach 30 Sekunden oder bei zu grosser Ausgabe wird der Prozess abgebrochen. Programme laufen mit den Rechten des AgentFlux-Prozesses; die Freigabeliste ist keine Sandbox.
+Executables and arguments are fixed by the allowlist. Programs receive JSON on stdin and return JSON or text on stdout. They run with `shell: false`, the data directory as cwd and a 30-second timeout; oversized output also stops the process. They have the server's permissions. The allowlist is not a sandbox.
 
-## Sicherung
+## Backups and updates
 
-Vor einer Dateisicherung den Dienst stoppen. So passen die SQLite-Datenbank und ihre WAL-Dateien beim Kopieren zusammen. Das vollständige Datenverzeichnis bzw. Docker-Volume sichern, einschliesslich versteckter Dateien und `.vault-key`. Ohne den ursprünglichen Schlüssel lassen sich die gespeicherten API-Zugangsdaten nicht wiederherstellen. Die Sicherung samt Schlüssel daher genauso sorgfältig schützen wie die Zugangsdaten selbst.
+Stop the service before copying the entire data directory or volume, including hidden files and `.vault-key`. Keep the database and key together and protect the backup like your credentials. To restore, stop the service, restore both, check write permissions and restart. `docker compose down -v` deletes the volume.
 
-Für eine Wiederherstellung den Dienst stoppen, die zusammengehörigen Daten und den Schlüssel zurückspielen, die Schreibrechte für den Dienstbenutzer wiederherstellen und danach starten. `docker compose down -v` entfernt den Datenträger unwiderruflich, sofern keine Sicherung existiert.
+For source builds, update with `docker compose up --build -d`. For a native installation, run `pnpm install --frozen-lockfile`, `pnpm build` and restart. Prebuilt-image updates are covered in the [release instructions](docker-release.md).
 
-## Aktualisieren
-
-Nach Änderungen am Quelltext `docker compose up --build -d` ausführen. Das benannte Datenvolume bleibt bestehen. Nativ zuerst `pnpm install --frozen-lockfile`, dann `pnpm build` ausführen und den Server neu starten.
-
-Zeitpläne werden vom laufenden Server verarbeitet. Ein gestoppter Dienst führt keine Workflows aus. Geplante Läufe mit Programm- oder HTTP-POST-Quellen werden an diesen Schritten abgewiesen; solche Workflows müssen manuell gestartet werden. Die übrigen Schritte können weiterhin Ergebnisse speichern oder freigegebene KI-Modelle aufrufen.
-
-KI-Ausgaben hängen vom gewählten Modell ab; eine konfigurierte Verbindung allein bestätigt weder die Erreichbarkeit noch die Qualität eines Modells.
+Schedules need a running server. Program and HTTP POST sources require a manual start; scheduled runs reject those steps. Other scheduled steps can still save results and call approved models.

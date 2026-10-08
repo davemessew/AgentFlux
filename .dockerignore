@@ -9,5 +9,3 @@ artifacts
 !.env.example
 docs
 README.md
-PRODUCT.md
-DESIGN.md

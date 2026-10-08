@@ -13,7 +13,6 @@ export function seed(){
   put('settings',settings());
   if(!existsSync(join(INBOX,'beispiel-posteingang.json')))writeFileSync(join(INBOX,'beispiel-posteingang.json'),JSON.stringify(exampleRecords,null,2));
   if(getSeeded())return;
-  // Fresh installs show clearly labelled demo documents without inventing execution history.
   saveRecords(exampleRecords.map(record=>({...record,source:'Synthetische Beispieldaten',classification:'internal',metadata:{department:record.department,priority:record.priority,status:record.status,synthetic:true}})));
   const stamp=now();
   for(const c of [
