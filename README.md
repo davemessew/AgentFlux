@@ -1,110 +1,183 @@
+<div align="center">
+
+<img src="public/favicon.svg" alt="AgentFlux" width="80" height="80">
+
 # AgentFlux
 
-AgentFlux führt beschriebene Aufgaben als visuelle Workflows aus. Agenten können passende Abläufe erstellen, nach Zeitplan arbeiten und Learnings sowie wiederverwendbare Skills speichern. Die Anwendung läuft auf dem eigenen Rechner oder in Docker.
+### Deine Daten. Deine Modelle. Deine Abläufe.
 
-Der Editor enthält 17 vorkonfigurierte Bausteine und acht Workflow-Vorlagen. Quellen lassen sich mit Maus oder Touch auf die Arbeitsfläche ziehen und verbinden. Änderungen können rückgängig gemacht werden; eigene Abläufe lassen sich duplizieren, als Vorlage speichern und als JSON importieren oder exportieren.
+Ein eigener Arbeitsbereich für visuelle Workflows und KI-Agenten.<br>
+Dateien einlesen, Aufgaben automatisieren und Ergebnisse lokal behalten.
 
-## Mit Docker starten
+[![Release](https://img.shields.io/github/v/release/davemessew/AgentFlow?style=for-the-badge&color=c9e89a&labelColor=203a30)](https://github.com/davemessew/AgentFlow/releases/latest)
+[![Docker](https://img.shields.io/badge/Docker-linux%2Famd64-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://github.com/davemessew/AgentFlow/releases/tag/v0.2.0)
+[![License](https://img.shields.io/badge/License-Apache%202.0-203a30?style=for-the-badge)](LICENSE)
 
-Docker mit Compose wird vorausgesetzt. Im Projektordner ausführen:
+[**Docker-Release herunterladen**](https://github.com/davemessew/AgentFlow/releases/latest) · [Website](https://agentflux.cloud) · [Dokumentation](docs/installation.md) · [Problem melden](https://github.com/davemessew/AgentFlow/issues)
 
-```sh
-docker compose up --build -d
-```
+<br>
 
-Danach `http://127.0.0.1:4310` öffnen. Das Image heisst `agentflux:local`. Port 4310 ist nur vom eigenen Rechner aus erreichbar. Der Server läuft im Container als Benutzer `node`; seine Daten bleiben im benannten Volume `agentflux-data` erhalten.
+<img src="docs/screenshots/overview.jpg" alt="AgentFlux: Übersicht mit Workflows, Datenquellen und ersten Schritten" width="100%">
 
-```sh
-docker compose logs -f agentflux
-docker compose stop
-```
+</div>
 
-`docker compose down` entfernt den Container und das Netzwerk, behält aber die Daten. `docker compose down -v` löscht auch das Datenvolume.
+<br>
 
-## Ohne Docker starten
+## Was du damit machen kannst
 
-Node.js 24 oder neuer und pnpm 11.25.0 installieren. Im Projektordner:
+AgentFlux verbindet Dokumente, Datenquellen und Sprachmodelle in einem visuellen Ablauf. Du kannst jeden Schritt selbst zusammensetzen oder einen Agenten aus einer Aufgabenbeschreibung einen Workflow erstellen lassen. Die Anwendung läuft auf deinem Rechner oder Server, die Bedienung im Browser.
 
-```sh
-pnpm install --frozen-lockfile
-pnpm build
-pnpm start
-```
+| | Im Arbeitsbereich |
+| :--- | :--- |
+| **Visuelle Workflows** | 17 vorkonfigurierte Bausteine, acht Vorlagen, Verzweigungen, Undo/Redo und JSON-Import/-Export. |
+| **KI-Agenten** | Aufträge beschreiben, Quellen und Modell auswählen, manuell starten oder einen Zeitplan einrichten. |
+| **Wissen und Learnings** | Dokumente lokal ablegen, Beobachtungen aus Durchläufen prüfen und Arbeitsanweisungen als Skills wiederverwenden. |
+| **Eigene Modelle** | Ollama, LM Studio, vLLM und OpenAI-kompatible Endpunkte verbinden. |
+| **Dateien und Anbindungen** | PDF, DOCX, XLSX, CSV, JSON und Text einlesen; Ordner, HTTP-Endpunkte und freigegebene Programme anbinden. |
+| **Nachvollziehbare Durchläufe** | Schritte und Ergebnisse ansehen, laufende Aufgaben abbrechen, Ergebnisse als JSON oder CSV exportieren. |
 
-Alternativ unter Windows `./start.ps1`, unter macOS/Linux `sh ./start.sh` ausführen. Beide Skripte installieren die festgeschriebenen Abhängigkeiten, bauen die Oberfläche und starten den Server. Für die Entwicklung: `pnpm dev`. Dabei läuft Vite auf Port 5173 und der API-Server auf Port 4310.
+## In wenigen Minuten mit Docker starten
 
-## Erste Schritte
+Du brauchst **Docker mit Compose**. Das fertige Release enthält die Anwendung, die gebaute Oberfläche und Node.js. Lokal musst du weder Node noch pnpm installieren.
 
-1. Unter **Vorlagen** den Ablauf **Daten bereinigen und speichern** öffnen. Er verwendet synthetische Aufträge und benötigt keinen Modellserver. Mit **Workflow starten** ausführen und die Ergebnisse im Durchlauf öffnen.
-2. Unter **Modelle** einen vorhandenen Modellserver verbinden. Voreinstellungen für Ollama, LM Studio und vLLM berücksichtigen den Docker-Betrieb. Modell-ID und gegebenenfalls Zugangsdaten eintragen.
-3. Unter **Agenten** einen Agenten anlegen: Auftrag beschreiben, Modell und erlaubte Datenquellen wählen, anschliessend speichern und starten. Der Agent plant einen Workflow und führt ihn aus. Für wiederkehrende Aufgaben einen Zeitplan aktivieren.
-4. Alternativ unter **Vorlagen > Auftrag beschreiben** einen einmaligen Workflow erstellen lassen. Der Entwurf lässt sich vor dem Start im Editor bearbeiten.
+### Fertiges Image verwenden
 
-Das Sprachmodell wird separat betrieben. AgentFlux kann einen vorhandenen lokalen Modellserver oder einen externen Anbieter ansprechen. Für externe Anbieter wird meist ein eigener API-Schlüssel benötigt.
+Lade diese beiden Dateien aus dem [Release v0.2.0](https://github.com/davemessew/AgentFlow/releases/tag/v0.2.0) in denselben Ordner:
 
-| Modellserver | Native Installation | AgentFlux in Docker |
-| --- | --- | --- |
-| Ollama auf dem Host | `http://127.0.0.1:11434` | `http://host.docker.internal:11434` |
-| OpenAI-kompatibler Server auf dem Host | z. B. `http://127.0.0.1:1234/v1` | z. B. `http://host.docker.internal:1234/v1` |
+- [**agentflux-0.2.0-linux-amd64.tar.gz**](https://github.com/davemessew/AgentFlow/releases/download/v0.2.0/agentflux-0.2.0-linux-amd64.tar.gz): das fertige Docker-Image.
+- [**compose.yaml**](https://github.com/davemessew/AgentFlow/releases/download/v0.2.0/compose.yaml): die Konfiguration zum Starten.
 
-Compose richtet `host.docker.internal` ein. Der Modellserver muss Verbindungen aus dem Container annehmen können. Falls er nur auf `127.0.0.1` lauscht, kann dafür eine Anpassung seiner Netzwerkeinstellungen nötig sein. Als Modell-ID den Namen eines verfügbaren Modells eintragen. Bei OpenAI-kompatiblen Servern gehört `/v1` in die Basis-URL, wenn der Server diesen Pfad verwendet.
+Öffne dort ein Terminal:
 
-## Dateien und Anbindungen
+~~~sh
+docker load -i agentflux-0.2.0-linux-amd64.tar.gz
+docker compose up -d --wait
+~~~
 
-Unterstützt werden TXT, MD, CSV, JSON, JSONL, HTML, XML, PDF, DOCX und XLSX. PDFs benötigen auslesbaren Text; OCR ist nicht enthalten. Der Import begrenzt Dateien und HTTP-Antworten auf 12 MB sowie einen Import auf 500 Datensätze. Ordnerquellen lesen bis zu 40 passende Dateien aus dem gewählten Ordner, ohne Unterordner zu durchsuchen.
+**Öffne [localhost:4310](http://localhost:4310).** Fertig.
 
-Ordnerquellen dürfen standardmässig auf `data/inbox` zugreifen. Weitere Wurzelverzeichnisse werden über `AGENTFLUX_IMPORT_ROOTS` freigegeben, getrennt durch Semikolon. Unter PowerShell zum Beispiel:
+Das vorgebaute Image ist für Linux/amd64. Unter Windows funktioniert es mit Docker Desktop im Modus für Linux-Container. Für andere Architekturen kannst du aus dem Quellcode bauen; sie wurden für dieses Release nicht geprüft.
 
-```powershell
-$env:AGENTFLUX_IMPORT_ROOTS = 'C:\Dokumente;D:\Exporte'
-pnpm start
-```
+<details>
+<summary><strong>Download direkt im Terminal</strong></summary>
 
-Für Docker müssen die Ordner zusätzlich in den Container eingebunden werden. Ein Beispiel für `compose.override.yaml`:
+~~~sh
+mkdir agentflux
+cd agentflux
+curl -fLO https://github.com/davemessew/AgentFlow/releases/download/v0.2.0/agentflux-0.2.0-linux-amd64.tar.gz
+curl -fLO https://github.com/davemessew/AgentFlow/releases/download/v0.2.0/compose.yaml
+docker load -i agentflux-0.2.0-linux-amd64.tar.gz
+docker compose up -d --wait
+~~~
 
-```yaml
-services:
-  agentflux:
-    environment:
-      AGENTFLUX_IMPORT_ROOTS: /imports
-    volumes:
-      - ./imports:/imports:ro
-```
+Unter Windows PowerShell gegebenenfalls <code>curl.exe</code> statt <code>curl</code> verwenden. Prüfsummen und die ausführliche Anleitung liegen ebenfalls im [Release](https://github.com/davemessew/AgentFlow/releases/tag/v0.2.0).
 
-Den Host-Ordner `imports` vorher anlegen und in der Oberfläche `/imports` als Quellpfad verwenden. Mehrere Containerpfade ebenfalls mit Semikolon trennen. Host-Pfade allein sind innerhalb eines Containers nicht erreichbar.
+</details>
 
-HTTP-Anbindungen unterstützen GET und POST. Zugangsdaten gehören in das verschlüsselt gespeicherte Bearer-Token-Feld; zusätzliche Header mit Namen wie `Authorization`, `Cookie`, `Token`, `Secret` oder `API-Key` werden abgewiesen. Programm-Anbindungen lesen eine feste Freigabeliste aus `data/programs.json` und müssen zusätzlich in den Einstellungen aktiviert werden. Zeitpläne sind auf lesende Quellen begrenzt; Programme und HTTP-POST-Quellen benötigen einen manuellen Start. Details und ein Beispiel stehen in [docs/operations.md](docs/operations.md).
+<details>
+<summary><strong>Lieber selbst bauen?</strong></summary>
 
-## Daten und Grenzen
+~~~sh
+git clone https://github.com/davemessew/AgentFlow.git
+cd AgentFlow
+docker compose up --build -d --wait
+~~~
 
-Die mitgelieferte Konfiguration betreibt eine Einzelbenutzerinstanz auf localhost. Sie enthält keine Anmeldung, Benutzerrollen oder Mandantentrennung. Ein gemeinsam oder öffentlich erreichbarer Betrieb benötigt eine vorgeschaltete Zugangskontrolle und eine passende Netzwerkfreigabe.
+Die [Installation ohne Docker](docs/installation.md#ohne-docker-starten) ist ebenfalls dokumentiert.
 
-Bevor ein Workflow Daten an ein externes KI-Modell oder per HTTP-POST an externe Adressen versendet, muss der Versand an zwei Stellen freigegeben sein: in den allgemeinen Einstellungen und im Workflow. HTTP-GET-Anfragen an externe Server sind auch ohne diese Freigaben möglich. Dabei können Angaben in der URL und in eigenen Headern übertragen werden.
+</details>
 
-Die optionale Maskierung sucht nach E-Mail-Adressen, bestimmten Schweizer Telefonnummern, AHV-Nummern, Schweizer IBANs und selbst hinterlegten Begriffen. Dafür verwendet sie reguläre Ausdrücke. Diese können Angaben übersehen oder harmlose Inhalte verändern. Die Maskierung gewährleistet weder vollständige Anonymisierung noch die Einhaltung von Datenschutzvorschriften. Vor dem Einsatz mit vertraulichen Daten müssen die Erkennung und die ausgehenden Inhalte geprüft werden. Auch KI-Ergebnisse brauchen eine fachliche Prüfung.
+## Ein Blick in die Anwendung
 
-API-Schlüssel und Verbindungstoken werden mit AES-256-GCM verschlüsselt in SQLite gespeichert. Der dazugehörige Schlüssel liegt daneben in `data/.vault-key`. Wer das gesamte Datenverzeichnis lesen kann, kann daher auch diese Zugangsdaten entschlüsseln. Dokumente, Workflow-Daten und Laufprotokolle liegen unverschlüsselt vor. Bei einer Sicherung müssen die Datenbank und `.vault-key` gemeinsam aufbewahrt werden; siehe [docs/operations.md](docs/operations.md).
+### Abläufe auf der Arbeitsfläche zusammensetzen
 
-## Workflows und Agenten
+Quellen und Verarbeitungsschritte verbinden, Einstellungen direkt am Baustein bearbeiten und den Durchlauf verfolgen.
 
-Die Bausteine lesen Daten ein, bereinigen Texte, ordnen Felder zu, filtern und sortieren Datensätze, verzweigen nach Bedingungen, maskieren Angaben, rufen Modelle oder eingerichtete Agenten auf und speichern Ergebnisse. Modellschritte enthalten einen eigenen Prompt und verarbeiten die Dokumente zusammen oder einzeln. Agentenschritte verwenden bei Bedarf gespeicherte Learnings und ausgewählte Skills.
+![Visueller Workflow-Editor mit verbundenen Bausteinen](docs/screenshots/workflow.jpg)
 
-Unvollständige Workflows können als Entwurf gespeichert werden. Vor der Ausführung meldet die Anwendung fehlende Quellen, Modelle und Verbindungen. Kreisförmige Verbindungen sind ausgeschlossen. Ein laufender Workflow kann abgebrochen werden; bereits abgeschlossene Schreibvorgänge bleiben erhalten. Die Ergebnisse stehen getrennt vom Laufprotokoll als JSON und CSV bereit. Ein erneuter Start führt den gesamten Ablauf noch einmal aus.
+<table>
+  <tr>
+    <td width="50%"><strong>Agenten</strong><br>Aufträge, Modelle und wiederkehrende Aufgaben an einem Ort.</td>
+    <td width="50%"><strong>Wissensspeicher</strong><br>Dokumente und aufbereitete Inhalte lokal durchsuchen.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/agents.jpg" alt="Agenten in AgentFlux verwalten"></td>
+    <td><img src="docs/screenshots/knowledge.jpg" alt="Lokaler Wissensspeicher mit Beispieldokumenten"></td>
+  </tr>
+</table>
 
-Ein Agent erstellt für seinen Auftrag einen neuen Workflow aus vorhandenen Bausteinen. Seine Quellen und Freigaben kommen aus der gespeicherten Konfiguration. Selbstständig geplante Abläufe verwenden lesende Anbindungen; Programmstarts und HTTP-POST gehören in ausdrücklich eingerichtete manuelle Workflows.
+## Dein erster Workflow
 
-Learnings werden als Beobachtungen mit Bezug auf einen Durchlauf gespeichert. Sie sind in der Anwendung einsehbar, bestätigbar und löschbar. Das Lernen verändert keine Modellgewichte. Skills bestehen aus wiederverwendbaren Arbeitsanweisungen und können bearbeitet und für weitere Aufträge ausgewählt werden. Sie führen keinen eigenen Programmcode aus und erweitern keine Berechtigungen.
+1. Öffne **Vorlagen** und wähle **Daten bereinigen und speichern**. Die Vorlage verwendet synthetische Beispieldaten und braucht kein KI-Modell.
+2. Starte den Workflow und öffne die Ergebnisse im Durchlauf.
+3. Verbinde unter **Modelle** deinen Modellserver, wenn du Dokumente zusammenfassen oder Agenten nutzen möchtest.
+4. Lege unter **Agenten** einen Auftrag an und wähle die erlaubten Quellen und das Modell.
 
-Zeitpläne benötigen einen laufenden Server. Laufende Aufgaben desselben Agenten oder Workflows überlappen nicht. Planungs-, Ausführungs- und Lernfehler werden getrennt angezeigt. Die Bedienelemente und Abläufe sind in [docs/workflows.md](docs/workflows.md) beschrieben.
+Ein Modell ist nicht im Docker-Image enthalten. Du kannst einen vorhandenen lokalen Server oder einen externen Anbieter mit eigenen Zugangsdaten verwenden.
 
-## Projektstruktur
+| Modellserver auf deinem Rechner | Basis-URL aus dem Container |
+| :--- | :--- |
+| Ollama | <code>http://host.docker.internal:11434</code> |
+| LM Studio / OpenAI-kompatibel | <code>http://host.docker.internal:1234/v1</code> |
+| vLLM | <code>http://host.docker.internal:8000/v1</code> |
 
-- `src`: Web-Oberfläche und visueller Editor
-- `shared`: Workflow-Regeln und Vorlagen
-- `server`: API, Ausführung, Agenten, Anbindungen und Speicherung
-- `examples`: registrierbarer lokaler Programm-Export
-- `docs`: Bedienung und Betrieb
+Passe Port und Modell-ID an deinen Server an. Der Modellserver muss Verbindungen aus dem Container annehmen können.
+
+## Betrieb und Daten
+
+~~~sh
+docker compose ps            # Status und Healthcheck
+docker compose logs -f       # Serverausgabe ansehen
+docker compose stop          # Anhalten
+docker compose up -d --wait  # Wieder starten
+~~~
+
+Workflows, Dokumente, Zugangsdaten und Laufprotokolle bleiben im benannten Volume <code>agentflux-data</code>. Ein Austausch des Containers löscht sie nicht. Sichere das vollständige Volume einschliesslich <code>.vault-key</code>; <code>docker compose down -v</code> löscht das Volume.
+
+> [!IMPORTANT]
+> Die mitgelieferte Konfiguration bindet Port 4310 an localhost. AgentFlux hat keine Anmeldung und ist als Einzelbenutzerinstanz ausgelegt. Für gemeinsam oder öffentlich erreichbaren Betrieb brauchst du eine vorgeschaltete Zugangskontrolle und eine passende Netzwerkkonfiguration.
+
+Cloud-Modellaufrufe und externe HTTP-POST-Schritte brauchen Freigaben in den Einstellungen und im Workflow. HTTP-GET-Anfragen können Angaben in URL und Headern übertragen. Die optionale Maskierung arbeitet mit Regeln und kann sensible Angaben übersehen. Details stehen in der [Installationsanleitung](docs/installation.md#daten-und-grenzen) und den [Betriebshinweisen](docs/operations.md).
+
+## Dokumentation und Entwicklung
+
+| Einstieg | Inhalt |
+| :--- | :--- |
+| [Docker-Release](https://github.com/davemessew/AgentFlow/releases/latest) | Fertiges Image, Compose-Datei, Quellcode und SHA-256-Prüfsummen |
+| [Release installieren](docs/docker-release.md) | Download, Überprüfung, Start und Update |
+| [Installation und Modelle](docs/installation.md) | Docker, native Installation und Modellanbindung |
+| [Workflows und Agenten](docs/workflows.md) | Editor, Bausteine, Vorlagen, Learnings und Skills |
+| [Betrieb und Konfiguration](docs/operations.md) | Umgebungsvariablen, Importordner, Sicherung und Programme |
+
+~~~text
+src/          Web-Oberfläche und visueller Editor
+server/       API, Agenten, Ausführung und SQLite-Speicherung
+shared/       Workflow-Regeln und Vorlagen
+examples/     Beispiel für einen lokalen Programm-Export
+scripts/      Docker-Release prüfen
+docs/         Bedienung, Betrieb und Screenshots
+website/      Projektwebsite
+~~~
+
+Für die lokale Entwicklung: Node.js 24+, pnpm 11.25.0, <code>pnpm install --frozen-lockfile</code>, danach <code>pnpm dev</code>.
+
+Den Docker-Test nach einem Build ausführen:
+
+~~~sh
+docker build -t agentflux:0.2.0 .
+node scripts/smoke-docker.mjs agentflux:0.2.0
+~~~
+
+Der Test verwendet einen eigenen Container mit eigenem Volume. Er prüft die API, die gebaute Oberfläche, einen Beispieldurchlauf und den Datenerhalt beim Ersetzen des Containers.
 
 ## Lizenz
 
-AgentFlux steht unter der Apache License 2.0; der vollständige Text liegt in [LICENSE](LICENSE). Abhängigkeiten behalten ihre jeweiligen Lizenzen.
+[Apache License 2.0](LICENSE). Mitgelieferte Abhängigkeiten und Schriftarten behalten ihre jeweiligen Lizenzen.
+
+<div align="center">
+
+<br>
+
+[Release herunterladen](https://github.com/davemessew/AgentFlow/releases/latest) · [Website besuchen](https://agentflux.cloud) · [Issue öffnen](https://github.com/davemessew/AgentFlow/issues)
+
+</div>
