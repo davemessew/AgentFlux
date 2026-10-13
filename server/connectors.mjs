@@ -122,7 +122,7 @@ export async function complete(provider, prompt, records, policy={}, options={})
   const temperature=options.temperature??0.2;const maxTokens=options.maxTokens??2048;
   const body=ollama?{model:provider.model,messages,stream:false,options:{temperature,num_predict:maxTokens}}:{model:provider.model,messages,temperature,max_tokens:maxTokens,stream:false};
   const raw=await request(base+(ollama?'/api/chat':'/chat/completions'),{method:'POST',headers,body:JSON.stringify(body),signal:options.signal},!external);
-  const data=JSON.parse(raw);const content=ollama?data.message?.content:data.choices?.[0]?.message?.content;
+  const response=JSON.parse(raw);const content=ollama?response.message?.content:response.choices?.[0]?.message?.content;
   if(typeof content!=='string'||!content.trim())throw new Error('Das Modell lieferte keine Textantwort.');
-  return {content,redactions,tokens:data.usage?.total_tokens || ((data.eval_count||0)+(data.prompt_eval_count||0)),model:provider.model};
+  return {content,redactions,tokens:response.usage?.total_tokens || ((response.eval_count||0)+(response.prompt_eval_count||0)),model:provider.model};
 }
