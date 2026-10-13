@@ -9,3 +9,7 @@ artifacts
 !.env.example
 docs
 README.md
+website
+scripts
+.github
+release
