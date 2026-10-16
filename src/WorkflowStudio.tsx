@@ -54,9 +54,9 @@ export default function WorkflowStudio({ workflow, onChange, data, currentRun, k
     window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key);
   }, []);
   function create(preset: Item, position?: Item) {
-    if (latest.current.nodes.length >= 40) { setNotice('Ein Workflow kann höchstens 40 Schritte enthalten.'); return; }
+    if (latest.current.nodes.length >= 40) { setNotice("A workflow can contain up to 40 steps."); return; }
     if (preset.kind === 'trigger' && latest.current.nodes.some((n: Item) => n.data.kind === 'trigger')) {
-      setNotice('Der Workflow hat bereits einen Start.'); return;
+      setNotice("The workflow already has a start step."); return;
     }
     const anchor = latest.current.nodes.find((n: Item) => n.id === selected);
     const rect = canvas.current?.getBoundingClientRect();
@@ -87,15 +87,15 @@ export default function WorkflowStudio({ workflow, onChange, data, currentRun, k
   const nodes = workflow.nodes.map((n: Item) => {
     const step = currentRun?.steps.find((s: Item) => s.nodeId === n.id), config = n.data.config || {};
     let subtitle = kinds[n.data.kind]?.description;
-    if (n.data.kind === 'source') subtitle = config.mode === 'inline' ? 'Text oder JSON im Schritt' : config.mode === 'library' ? 'Lokaler Wissensspeicher' : data.connectors.find((c: Item) => c.id === config.connectorId)?.name || 'Quelle auswählen';
-    if (n.data.kind === 'model') subtitle = data.providers.find((p: Item) => p.id === config.providerId)?.name || 'Modell auswählen';
-    if (n.data.kind === 'agent') subtitle = data.agents?.find((a: Item) => a.id === config.agentId)?.name || 'Agent auswählen';
+    if (n.data.kind === 'source') subtitle = config.mode === 'inline' ? "Text or JSON in this step" : config.mode === 'library' ? "Local knowledge base" : data.connectors.find((c: Item) => c.id === config.connectorId)?.name || "Select source";
+    if (n.data.kind === 'model') subtitle = data.providers.find((p: Item) => p.id === config.providerId)?.name || "Select model";
+    if (n.data.kind === 'agent') subtitle = data.agents?.find((a: Item) => a.id === config.agentId)?.name || "Select agent";
     return { ...n, selected: n.id === selected, data: { ...n.data, subtitle, runStatus: step?.status, durationMs: step?.durationMs, outputCount: step?.outputCount, needsConfig: issues.some((i: Item) => i.nodeId === n.id) } };
   });
   return <div className="studio-workspace">
     <div className={`node-library ${!library ? 'collapsed' : ''}`}>
-      <div className="library-heading"><strong>Bausteine</strong><button className="icon-button" onClick={() => setLibrary(!library)} aria-label="Bausteinliste umschalten"><PanelRightClose size={16}/></button></div>
-      {library && <><p>Ziehen oder anklicken. Ein Klick fügt den Baustein hinter der Auswahl ein.</p><div className="palette-search"><Search size={14}/><input aria-label="Bausteine suchen" value={query} onChange={e => setQuery(e.target.value)} placeholder="Baustein suchen"/></div>
+      <div className="library-heading"><strong>Steps</strong><button className="icon-button" onClick={() => setLibrary(!library)} aria-label="Toggle step library"><PanelRightClose size={16}/></button></div>
+      {library && <><p>Drag or click. Clicking inserts a step after the selection.</p><div className="palette-search"><Search size={14}/><input aria-label="Search steps" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search steps"/></div>
         <div className="library-items">{presets.map(preset => { const kind = kinds[preset.kind], Icon = kind.icon; return <button key={preset.id} className="library-node" style={{ touchAction: 'pan-y' }}
           onPointerDown={e => { if (e.button !== 0) return; skipClick.current = false; pointer.current = { id: e.pointerId, x: e.clientX, y: e.clientY, preset, moved: false }; e.currentTarget.setPointerCapture(e.pointerId); }}
           onPointerMove={e => { const drag = pointer.current; if (!drag || drag.id !== e.pointerId) return; if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 6) drag.moved = true; if (drag.moved) { setGhost({ x: e.clientX, y: e.clientY, label: preset.label }); e.preventDefault(); } }}
@@ -103,17 +103,17 @@ export default function WorkflowStudio({ workflow, onChange, data, currentRun, k
           onPointerCancel={() => { pointer.current = null; setGhost(null); skipClick.current = true; }}
           onClick={() => { if (skipClick.current) { skipClick.current = false; return; } create(preset); }}>
           <span className={`icon-box ${kind.color}`}><Icon size={18}/></span><span><strong>{preset.label}</strong><small>{preset.description}</small></span><Plus size={13}/></button>; })}</div>
-        {!presets.length && <p>Kein passender Baustein.</p>}</>}
+        {!presets.length && <p>No matching step.</p>}</>}
     </div>
     <div ref={canvas} className="flow-container" onDragOver={e => { if (e.dataTransfer.types.includes('application/agentflux')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }} onDrop={e => { e.preventDefault(); const id = e.dataTransfer.getData('application/agentflux'); const preset = BLOCK_PRESETS.find(p => p.id === id || p.kind === id); if (preset) create(preset, flow.screenToFlowPosition({ x: e.clientX, y: e.clientY })); }}>
-      <div className="canvas-tools" role="toolbar" aria-label="Workflow bearbeiten">
-        <button title="Rückgängig (Ctrl Z)" aria-label="Rückgängig" disabled={!undo.current.length} onClick={() => travel(true)}><Undo2 size={16}/></button>
-        <button title="Wiederholen (Ctrl Y)" aria-label="Wiederholen" disabled={!redo.current.length} onClick={() => travel(false)}><Redo2 size={16}/></button>
-        <button title="Schritte anordnen" onClick={() => { commit(arrangeWorkflow); requestAnimationFrame(() => flow.fitView({ padding: 0.18, duration: 250, maxZoom: 1 })); }}><LayoutGrid size={16}/><span>Anordnen</span></button>
-        <button title="Auswahl duplizieren" aria-label="Auswahl duplizieren" disabled={!selectedNode || selectedNode.data.kind === 'trigger'} onClick={duplicateSelected}><Copy size={16}/></button>
-        <button title="Auswahl löschen" aria-label="Auswahl löschen" disabled={!selectedNode} onClick={removeSelected}><Trash2 size={16}/></button>
+      <div className="canvas-tools" role="toolbar" aria-label="Edit workflow">
+        <button title="Undo (Ctrl Z)" aria-label="Undo" disabled={!undo.current.length} onClick={() => travel(true)}><Undo2 size={16}/></button>
+        <button title="Redo (Ctrl Y)" aria-label="Redo" disabled={!redo.current.length} onClick={() => travel(false)}><Redo2 size={16}/></button>
+        <button title="Arrange steps" onClick={() => { commit(arrangeWorkflow); requestAnimationFrame(() => flow.fitView({ padding: 0.18, duration: 250, maxZoom: 1 })); }}><LayoutGrid size={16}/><span>Arrange</span></button>
+        <button title="Duplicate selection" aria-label="Duplicate selection" disabled={!selectedNode || selectedNode.data.kind === 'trigger'} onClick={duplicateSelected}><Copy size={16}/></button>
+        <button title="Delete selection" aria-label="Delete selection" disabled={!selectedNode} onClick={removeSelected}><Trash2 size={16}/></button>
       </div>
-      <ReactFlow nodes={nodes} edges={workflow.edges.map((e: Item) => ({ ...e, type: 'smoothstep', animated: currentRun?.status === 'running', label: e.sourceHandle === 'true' ? 'Ja' : e.sourceHandle === 'false' ? 'Nein' : undefined, style: { stroke: '#8995b4', strokeWidth: 1.8 } }))} nodeTypes={nodeTypes}
+      <ReactFlow nodes={nodes} edges={workflow.edges.map((e: Item) => ({ ...e, type: 'smoothstep', animated: currentRun?.status === 'running', label: e.sourceHandle === 'true' ? "Yes" : e.sourceHandle === 'false' ? "No" : undefined, style: { stroke: '#8995b4', strokeWidth: 1.8 } }))} nodeTypes={nodeTypes}
         onNodesChange={changes => { const meaningful = changes.filter(c => c.type !== 'select'); if (!meaningful.length) return; commit(w => { const next = applyNodeChanges(meaningful, w.nodes), ids = new Set(next.map(n => n.id)); return { ...w, nodes: next, edges: w.edges.filter((e: Item) => ids.has(e.source) && ids.has(e.target)) }; }, 'position', meaningful.some(c => c.type === 'remove')); }}
         onNodeDragStart={() => remember(latest.current)}
         onEdgesChange={changes => commit(w => ({ ...w, edges: applyEdgeChanges(changes, w.edges) }), '', changes.some(c => c.type === 'remove'))}
@@ -126,13 +126,13 @@ export default function WorkflowStudio({ workflow, onChange, data, currentRun, k
         fitView fitViewOptions={{ padding: 0.2, maxZoom: 0.9 }} minZoom={0.15} maxZoom={1.8} deleteKeyCode={['Backspace', 'Delete']} proOptions={{ hideAttribution: true }}>
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#cbd3e8"/><Controls showInteractive={false}/><MiniMap nodeColor={n => ['model', 'agent'].includes(String(n.data.kind)) ? '#b9a2ee' : '#a3b5f7'} maskColor="rgba(246,248,253,0.8)" pannable zoomable/>
       </ReactFlow>
-      <button className="inspector-toggle icon-button" aria-label="Schritteinstellungen umschalten" onClick={() => setInspector(!inspector)}><PanelRightOpen size={18}/></button>
-      <div className={`canvas-readiness ${issues.length ? 'needs-input' : 'ready'}`} aria-live="polite">{issues.length ? <AlertCircle size={15}/> : <CheckCircle2 size={15}/>}<span>{notice || (issues.length ? `${issues.length} ${issues.length === 1 ? 'Einstellung fehlt' : 'Einstellungen fehlen'}` : 'Zum Start bereit')}</span>{issues.length > 0 && <button onClick={() => { setSelected(issues[0].nodeId || null); setInspector(true); }}>Anzeigen</button>}</div>
+      <button className="inspector-toggle icon-button" aria-label="Toggle step settings" onClick={() => setInspector(!inspector)}><PanelRightOpen size={18}/></button>
+      <div className={`canvas-readiness ${issues.length ? 'needs-input' : 'ready'}`} aria-live="polite">{issues.length ? <AlertCircle size={15}/> : <CheckCircle2 size={15}/>}<span>{notice || (issues.length ? `${issues.length} ${issues.length === 1 ? "Configuration needed" : "Configuration needed"}` : "Ready to run")}</span>{issues.length > 0 && <button onClick={() => { setSelected(issues[0].nodeId || null); setInspector(true); }}>Show</button>}</div>
     </div>
-    {inspector && <aside className="node-inspector"><div className="inspector-heading"><span>{selectedNode ? 'Schritt konfigurieren' : 'Workflow'}</span><button className="icon-button" aria-label="Details schliessen" onClick={() => setInspector(false)}><PanelRightClose size={16}/></button></div>
-      {selectedNode ? <><div className="inspector-node-title"><h3>{kinds[selectedNode.data.kind]?.label}</h3><p>{kinds[selectedNode.data.kind]?.description}</p></div><div className="inspector-fields"><label className="field"><span>Bezeichnung</span><input maxLength={120} value={selectedNode.data.label} onChange={e => { const label = e.target.value; commit(w => ({ ...w, nodes: w.nodes.map((n: Item) => n.id === selected ? { ...n, data: { ...n.data, label } } : n) }), `label:${selected}`); }}/></label><NodeFields node={selectedNode} data={data} update={updateConfig}/></div><div className="node-local-issues">{issues.filter((i: Item) => i.nodeId === selected).map((i: Item, index: number) => <p key={index}><AlertCircle size={14}/>{i.message}</p>)}</div></> : <><div className="inspector-idle"><MousePointer2 size={30}/><h3>Schritt auswählen</h3><p>Klicke einen Baustein an, um seinen Auftrag und seine Einstellungen zu bearbeiten.</p></div><div className="workflow-facts"><div><span>Schritte</span><strong>{workflow.nodes.length}</strong></div><div><span>Verbindungen</span><strong>{workflow.edges.length}</strong></div><div><span>Ausführung</span><strong>{workflow.schedule?.enabled ? 'Zeitplan' : 'Manuell'}</strong></div></div></>}
-      {issues.length > 0 && <div className="workflow-issues"><h4>Vor dem Start</h4>{issues.map((issue: Item, index: number) => <button key={index} onClick={() => setSelected(issue.nodeId || null)}><AlertCircle size={14}/><span>{issue.message}</span></button>)}</div>}
-      {workflow.lastScheduleError && <p className="step-error">Zeitplan: {workflow.lastScheduleError}</p>}
+    {inspector && <aside className="node-inspector"><div className="inspector-heading"><span>{selectedNode ? "Configure step" : 'Workflow'}</span><button className="icon-button" aria-label="Close details" onClick={() => setInspector(false)}><PanelRightClose size={16}/></button></div>
+      {selectedNode ? <><div className="inspector-node-title"><h3>{kinds[selectedNode.data.kind]?.label}</h3><p>{kinds[selectedNode.data.kind]?.description}</p></div><div className="inspector-fields"><label className="field"><span>Label</span><input maxLength={120} value={selectedNode.data.label} onChange={e => { const label = e.target.value; commit(w => ({ ...w, nodes: w.nodes.map((n: Item) => n.id === selected ? { ...n, data: { ...n.data, label } } : n) }), `label:${selected}`); }}/></label><NodeFields node={selectedNode} data={data} update={updateConfig}/></div><div className="node-local-issues">{issues.filter((i: Item) => i.nodeId === selected).map((i: Item, index: number) => <p key={index}><AlertCircle size={14}/>{i.message}</p>)}</div></> : <><div className="inspector-idle"><MousePointer2 size={30}/><h3>Select a step</h3><p>Click a step to edit its task and settings.</p></div><div className="workflow-facts"><div><span>steps</span><strong>{workflow.nodes.length}</strong></div><div><span>Connections</span><strong>{workflow.edges.length}</strong></div><div><span>Execution</span><strong>{workflow.schedule?.enabled ? "Schedule" : "Manual"}</strong></div></div></>}
+      {issues.length > 0 && <div className="workflow-issues"><h4>Before running</h4>{issues.map((issue: Item, index: number) => <button key={index} onClick={() => setSelected(issue.nodeId || null)}><AlertCircle size={14}/><span>{issue.message}</span></button>)}</div>}
+      {workflow.lastScheduleError && <p className="step-error">Schedule: {workflow.lastScheduleError}</p>}
     </aside>}
     {ghost && <div className="palette-drag-preview" style={{ left: ghost.x + 14, top: ghost.y + 14 }}><Workflow size={16}/>{ghost.label}</div>}
   </div>;

@@ -5,7 +5,7 @@ export function cleanWorkflow(workflow) {
     id: workflow.id,
     name: workflow.name,
     description: workflow.description || '',
-    category: workflow.category || 'Eigener Workflow',
+    category: workflow.category || 'Custom workflow',
     nodes: (workflow.nodes || []).map(n => ({
       id: n.id, type: 'flux', position: { x: n.position?.x, y: n.position?.y },
       data: { kind: n.data?.kind, label: n.data?.label, config: structuredClone(n.data?.config || {}) }
@@ -50,11 +50,11 @@ export function canConnect(nodes, edges, connection, ignoredEdgeId) {
 export function workflowIssues(workflow, context = {}) {
   const issues = [], nodes = workflow.nodes || [], edges = workflow.edges || [];
   const add = (message, nodeId) => issues.push({ message, ...(nodeId ? { nodeId } : {}) });
-  if (!workflow.name?.trim()) add('Gib dem Workflow einen Namen.');
-  if (!nodes.length) { add('Füge einen Start und mindestens einen Verarbeitungsschritt hinzu.'); return issues; }
+  if (!workflow.name?.trim()) add('Give the workflow a name.');
+  if (!nodes.length) { add('Add a start and at least one processing step.'); return issues; }
   const starts = nodes.filter(n => n.data.kind === 'trigger');
-  if (starts.length !== 1) add('Ein Workflow braucht genau einen Start.');
-  if (nodes.length < 2) add('Verbinde den Start mit einer Datenquelle oder einem Verarbeitungsschritt.');
+  if (starts.length !== 1) add('A workflow needs exactly one start.');
+  if (nodes.length < 2) add('Connect the start to a data source or processing step.');
   const visited = new Set(), pending = starts.map(n => n.id);
   while (pending.length) {
     const id = pending.pop();
@@ -62,44 +62,44 @@ export function workflowIssues(workflow, context = {}) {
     visited.add(id);
     edges.filter(e => e.source === id).forEach(e => pending.push(e.target));
   }
-  for (const edge of edges) if (!canConnect(nodes, edges, edge, edge.id)) add('Eine Verbindung ist doppelt, kreisförmig oder verwendet einen ungültigen Anschluss.', edge.target);
+  for (const edge of edges) if (!canConnect(nodes, edges, edge, edge.id)) add('A connection is duplicated, circular or uses an invalid port.', edge.target);
   for (const n of nodes) {
     const c = n.data.config || {}, kind = n.data.kind;
-    if (!visited.has(n.id)) add('Dieser Schritt ist nicht mit dem Start verbunden.', n.id);
-    if (!n.data.label?.trim()) add('Gib dem Schritt eine Bezeichnung.', n.id);
-    if (!NODE_KINDS.includes(kind)) add('Dieser Bausteintyp wird nicht unterstützt.', n.id);
+    if (!visited.has(n.id)) add('This step is not connected to the start.', n.id);
+    if (!n.data.label?.trim()) add('Give the step a label.', n.id);
+    if (!NODE_KINDS.includes(kind)) add('This node type is not supported.', n.id);
     if (kind === 'source') {
       if (c.mode === 'inline') {
-        if (!c.text?.trim()) add('Trage Text oder JSON als Eingabe ein.', n.id);
+        if (!c.text?.trim()) add('Enter text or JSON as input.', n.id);
       } else if (c.mode !== 'library') {
         const connector = context.connectors?.find(item => item.id === c.connectorId);
-        if (!c.connectorId || (context.connectors && !connector)) add('Wähle eine vorhandene Datenquelle.', n.id);
-        if (connector?.type === 'program' && context.settings && !context.settings.programsEnabled) add('Aktiviere registrierte Programme in den Einstellungen.', n.id);
-        if (workflow.schedule?.enabled && (connector?.type === 'program' || connector?.config?.method === 'POST')) add('Programme und POST-Anfragen benötigen einen manuellen Start. Deaktiviere den Zeitplan.', n.id);
+        if (!c.connectorId || (context.connectors && !connector)) add('Select an existing data source.', n.id);
+        if (connector?.type === 'program' && context.settings && !context.settings.programsEnabled) add('Enable registered programs in Settings.', n.id);
+        if (workflow.schedule?.enabled && (connector?.type === 'program' || connector?.config?.method === 'POST')) add('Programs and POST requests require a manual start. Disable the schedule.', n.id);
       }
     }
     if (kind === 'model') {
       const provider = context.providers?.find(item => item.id === c.providerId);
-      if (!c.providerId || (context.providers && !provider)) add('Wähle ein verbundenes Modell.', n.id);
-      if (!c.prompt?.trim()) add('Beschreibe den Arbeitsauftrag für das Modell.', n.id);
-      if (provider?.scope === 'cloud' && (!workflow.policy?.allowCloud || (context.settings && !context.settings.allowCloud))) add('Dieses externe Modell braucht eine Freigabe im Workflow und in den Einstellungen.', n.id);
+      if (!c.providerId || (context.providers && !provider)) add('Select a connected model.', n.id);
+      if (!c.prompt?.trim()) add('Describe the task for the model.', n.id);
+      if (provider?.scope === 'cloud' && (!workflow.policy?.allowCloud || (context.settings && !context.settings.allowCloud))) add('This external model needs approval in the workflow and in Settings.', n.id);
     }
     if (kind === 'agent') {
-      if (!c.agentId || (context.agents && !context.agents.some(a => a.id === c.agentId))) add('Wähle einen eingerichteten Agenten.', n.id);
+      if (!c.agentId || (context.agents && !context.agents.some(a => a.id === c.agentId))) add('Select a configured agent.', n.id);
     }
     if (kind === 'transform' && c.operation === 'fields') {
       try {
         const mapping = typeof c.mapping === 'string' ? JSON.parse(c.mapping) : c.mapping;
         if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping) || Object.values(mapping).some(v => typeof v !== 'string')) throw new Error();
-      } catch { add('Trage eine gültige JSON-Feldzuordnung mit Textpfaden ein.', n.id); }
+      } catch { add('Enter a valid JSON field mapping with text paths.', n.id); }
     }
     if (kind === 'condition' || (kind === 'transform' && ['filter', 'sort'].includes(c.operation))) {
-      if (!c.field?.trim()) add('Gib das Feld an, etwa metadata.priority.', n.id);
+      if (!c.field?.trim()) add('Enter a field, such as metadata.priority.', n.id);
     }
     if (kind === 'condition') {
-      if (!edges.some(e => e.source === n.id)) add('Verbinde mindestens einen Ja- oder Nein-Ausgang.', n.id);
+      if (!edges.some(e => e.source === n.id)) add('Connect at least one Yes or No output.', n.id);
     } else if (!['store', 'output'].includes(kind) && !edges.some(e => e.source === n.id)) {
-      add('Verbinde diesen Schritt mit einem Folgeschritt oder einer Ausgabe.', n.id);
+      add('Connect this step to another step or an output.', n.id);
     }
   }
   return issues;

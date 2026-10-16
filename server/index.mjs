@@ -8,6 +8,7 @@ import { validateWorkflow,startRun,cancelRun,resultForRun,setPublisher } from '.
 import { cleanWorkflow,workflowIssues } from '../shared/workflow.mjs';
 import { BUILTIN_TEMPLATES } from '../shared/templates.mjs';
 import { setupAgents } from './agents.mjs';
+import { setupVideoWorkflow } from './video.mjs';
 import { seed,exampleRecords } from './seed.mjs';
 
 seed();
@@ -26,6 +27,7 @@ app.use((req,res,next)=>{
   if(req.headers.origin){let origin;try{origin=new URL(req.headers.origin);}catch{return res.status(403).json({error:'Ungültiger Origin.'});}if(!['localhost','127.0.0.1','[::1]'].includes(origin.hostname)&&!allowed.includes(origin.hostname))return res.status(403).json({error:'Anfragen von fremden Websites sind gesperrt.'});if(![String(process.env.PORT||4310),'5173'].includes(origin.port))return res.status(403).json({error:'Origin-Port ist nicht freigegeben.'});}
   next();
 });
+app.use('/api/assistant/video-workflow',express.json({limit:'12mb'}));
 app.use(express.json({limit:'2mb'}));
 const object=value=>!!value&&typeof value==='object'&&!Array.isArray(value);
 const textField=(value,max=120)=>typeof value==='string'&&value.trim().length>0&&value.length<=max;
@@ -79,6 +81,7 @@ app.post('/api/assistant/workflow',async(req,res)=>{
   const instruction=`Entwirf einen Workflow für: ${prompt}\nGib NUR ein JSON-Objekt zurück mit name, description, nodes, edges. nodes: Array mit id, type:"flux", position:{x:number,y:number}, data:{kind,label,config}. Erlaubte kinds: trigger,source,transform,condition,redact,model,store,output. source config: {connectorId} oder {mode:"library"}. transform config: {operation:"clean"|"deduplicate"|"limit",limit:10}. condition config:{field:"content",operator:"contains",value:"..."}. model config:{providerId:"${p.id}",prompt:"..."}. Andere config:{}. edges:{id,source,target,sourceHandle?:"true"|"false"}. Keine Zyklen, maximal 12 Knoten, horizontal je 280px Abstand. Verfügbare Anschlüsse: ${JSON.stringify(connectorInfo)}. Beginne mit trigger. Verarbeite und speichere. Keine Programme oder HTTP-URLs erfinden.`;
   const result=await complete(p,instruction,[],{allowCloud:allowCloud===true,redactCloud:true});const text=result.content.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'').trim();const parsed=JSON.parse(text);validateWorkflow(parsed);res.json({...parsed,id:uid(),category:'KI-Entwurf',policy:{allowCloud:false,redactCloud:true},schedule:{enabled:false,intervalMinutes:60},updatedAt:now()});
 });
+setupVideoWorkflow(app);
 agentRuntime=setupAgents(app,{publish,startRun,validateWorkflow,cancelRun});
 app.get('/api/sample/requests',(_req,res)=>res.json(exampleRecords));
 app.use('/api',(_req,res)=>res.status(404).json({error:'API-Endpunkt nicht gefunden.'}));

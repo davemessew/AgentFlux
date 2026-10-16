@@ -4,62 +4,71 @@
 
 # AgentFlux
 
-### Deine Daten. Deine Modelle. Deine Abläufe.
+### Your data. Your models. Your workflows.
 
-**Agentische KI-Plattform** für visuelle Workflows und selbstständig arbeitende Agenten.<br>
-Dateien einlesen, Aufgaben automatisieren und Ergebnisse lokal behalten.
+**Agentic AI platform** for visual workflows and autonomous agents.<br>
+Import files, automate tasks and keep results local.
 
 [![Release](https://img.shields.io/github/v/release/davemessew/AgentFlux?style=for-the-badge&color=3d63ff&labelColor=0b1126)](https://github.com/davemessew/AgentFlux/releases/latest)
 [![Docker](https://img.shields.io/badge/Docker-linux%2Famd64-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://github.com/davemessew/AgentFlux/releases/tag/v0.2.0)
 [![License](https://img.shields.io/badge/License-Apache%202.0-2a49d8?style=for-the-badge)](LICENSE)
 
-[**Docker-Release herunterladen**](https://github.com/davemessew/AgentFlux/releases/latest) · [Website](https://agentflux.cloud) · [Dokumentation](docs/installation.md) · [Problem melden](https://github.com/davemessew/AgentFlux/issues)
+[**Download the Docker release**](https://github.com/davemessew/AgentFlux/releases/latest) · [Website](https://agentflux.cloud) · [Documentation](docs/installation.md) · [Report an issue](https://github.com/davemessew/AgentFlux/issues)
 
 <br>
 
-<img src="docs/screenshots/overview.jpg" alt="AgentFlux: Übersicht mit Workflows, Datenquellen und ersten Schritten" width="100%">
+<img src="docs/screenshots/overview.jpg" alt="AgentFlux overview with workflows, data sources and getting started" width="100%">
 
 </div>
 
 <br>
 
-## Was du damit machen kannst
+## What you can do
 
-AgentFlux verbindet Dokumente, Datenquellen und Sprachmodelle in einem visuellen Ablauf. Du kannst jeden Schritt selbst zusammensetzen oder einen Agenten aus einer Aufgabenbeschreibung einen Workflow erstellen lassen. Die Anwendung läuft auf deinem Rechner oder Server, die Bedienung im Browser.
+AgentFlux connects documents, data sources and language models in a visual workflow. Build each step yourself or let an agent create a workflow from a task description. The application runs on your computer or server, with a browser interface.
 
 | | In AgentFlux |
 | :--- | :--- |
-| **Visuelle Workflows** | 17 vorkonfigurierte Bausteine, acht Vorlagen, Verzweigungen, Undo/Redo und JSON-Import/-Export. |
-| **KI-Agenten** | Aufträge beschreiben, Quellen und Modell auswählen, manuell starten oder einen Zeitplan einrichten. |
-| **Wissen und Learnings** | Dokumente lokal ablegen, Beobachtungen aus Durchläufen prüfen und Arbeitsanweisungen als Skills wiederverwenden. |
-| **Eigene Modelle** | Ollama, LM Studio, vLLM und OpenAI-kompatible Endpunkte verbinden. |
-| **Dateien und Anbindungen** | PDF, DOCX, XLSX, CSV, JSON und Text einlesen; Ordner, HTTP-Endpunkte und freigegebene Programme anbinden. |
-| **Nachvollziehbare Durchläufe** | Schritte und Ergebnisse ansehen, laufende Aufgaben abbrechen, Ergebnisse als JSON oder CSV exportieren. |
+| **Visual workflows** | 17 preconfigured steps, eight templates, branching, undo/redo and JSON import/export. |
+| **AI agents** | Describe tasks, select sources and a model, then start manually or set a schedule. |
+| **Video to workflow** | Identify actions in a recording, review them with timestamps and turn them into an editable workflow. |
+| **Knowledge and learnings** | Store documents locally, review observations from runs and reuse instructions as skills. |
+| **Your own models** | Connect Ollama, LM Studio, vLLM and OpenAI-compatible endpoints. |
+| **Files and connections** | Import PDF, DOCX, XLSX, CSV, JSON and text; connect folders, HTTP endpoints and approved programs. |
+| **Traceable runs** | Inspect steps and results, cancel running tasks and export results as JSON or CSV. |
 
-## In wenigen Minuten mit Docker starten
+### Create a workflow from a video
 
-Du brauchst **Docker mit Compose**. Das fertige Release enthält die Anwendung, die gebaute Oberfläche und Node.js. Lokal musst du weder Node noch pnpm installieren.
+Open **Agents → Analyse video**, select a recording and a model connection with vision support. If details are missing or a step is unclear, the agent asks short questions. Reply in text and it continues the analysis using your answers. Once the workflow is fully mapped, you can review the steps with timestamps. Choose **Open in editor** to save and run the workflow.
 
-### Fertiges Image verwenden
+The recording stays in your browser. Up to 24 evenly spaced JPEG frames are sent to the selected model server for analysis. Audio is not analysed, and brief actions between frames may be missed. Videos up to 250 MB and 30 minutes are supported if your browser can read the codec. Cloud models require explicit permission to receive unredacted images.
 
-Lade diese beiden Dateien aus dem [Release v0.2.0](https://github.com/davemessew/AgentFlux/releases/tag/v0.2.0) in denselben Ordner:
+Generated workflows contain only executable steps for existing connections. The analysis does not control other desktop applications. If a suitable connection is missing, the agent asks about the target and an available alternative. Video analysis is included in the current source code; the prebuilt v0.2.0 Docker image does not include it yet. Use a [build from source](#selbst-bauen) for this feature.
 
-- [**agentflux-0.2.0-linux-amd64.tar.gz**](https://github.com/davemessew/AgentFlux/releases/download/v0.2.0/agentflux-0.2.0-linux-amd64.tar.gz): das fertige Docker-Image.
-- [**compose.yaml**](https://github.com/davemessew/AgentFlux/releases/download/v0.2.0/compose.yaml): die Konfiguration zum Starten.
+## Get started with Docker in minutes
 
-Öffne dort ein Terminal:
+You need **Docker with Compose**. The release includes the application, built interface and Node.js. You do not need to install Node or pnpm locally.
+
+### Use the prebuilt image
+
+Download these two files from [release v0.2.0](https://github.com/davemessew/AgentFlux/releases/tag/v0.2.0) into the same folder:
+
+- [**agentflux-0.2.0-linux-amd64.tar.gz**](https://github.com/davemessew/AgentFlux/releases/download/v0.2.0/agentflux-0.2.0-linux-amd64.tar.gz): the prebuilt Docker image.
+- [**compose.yaml**](https://github.com/davemessew/AgentFlux/releases/download/v0.2.0/compose.yaml): the startup configuration.
+
+Open a terminal in that folder:
 
 ~~~sh
 docker load -i agentflux-0.2.0-linux-amd64.tar.gz
 docker compose up -d --wait
 ~~~
 
-**Öffne [localhost:4310](http://localhost:4310).** Fertig.
+**Open [localhost:4310](http://localhost:4310).** Done.
 
-Das vorgebaute Image ist für Linux/amd64. Unter Windows funktioniert es mit Docker Desktop im Modus für Linux-Container. Für andere Architekturen kannst du aus dem Quellcode bauen; sie wurden für dieses Release nicht geprüft.
+The prebuilt image targets Linux/amd64. On Windows, use Docker Desktop in Linux container mode. You can build from source for other architectures; they were not tested for this release.
 
 <details>
-<summary><strong>Download direkt im Terminal</strong></summary>
+<summary><strong>Download from the terminal</strong></summary>
 
 ~~~sh
 mkdir agentflux
@@ -70,12 +79,12 @@ docker load -i agentflux-0.2.0-linux-amd64.tar.gz
 docker compose up -d --wait
 ~~~
 
-Unter Windows PowerShell gegebenenfalls <code>curl.exe</code> statt <code>curl</code> verwenden. Prüfsummen und die ausführliche Anleitung liegen ebenfalls im [Release](https://github.com/davemessew/AgentFlux/releases/tag/v0.2.0).
+In Windows PowerShell, use <code>curl.exe</code> instead of <code>curl</code> if needed. Checksums and full instructions are also included in the [release](https://github.com/davemessew/AgentFlux/releases/tag/v0.2.0).
 
 </details>
 
 <details>
-<summary id="selbst-bauen"><strong>Lieber selbst bauen?</strong></summary>
+<summary id="selbst-bauen"><strong>Prefer to build from source?</strong></summary>
 
 ~~~sh
 git clone https://github.com/davemessew/AgentFlux.git
@@ -83,103 +92,102 @@ cd AgentFlux
 docker compose up --build -d --wait
 ~~~
 
-Die [Installation ohne Docker](docs/installation.md#ohne-docker-starten) ist ebenfalls dokumentiert.
+[Installation without Docker](docs/installation.md#without-docker) is also documented.
 
 </details>
 
-## Ein Blick in die Anwendung
+## A look inside
 
-Die Screenshots zeigen den aktuellen Quellcode-Stand. Das veröffentlichte Docker-Release v0.2.0 verwendet noch das grüne Farbschema; das neue Design ist beim [Build aus dem Quellcode](#selbst-bauen) enthalten.
+The screenshots show the current source version. The published v0.2.0 Docker release still uses the green colour scheme; the new design is included when you [build from source](#selbst-bauen).
 
-### Abläufe auf der Arbeitsfläche zusammensetzen
+### Build workflows on the canvas
 
-Quellen und Verarbeitungsschritte verbinden, Einstellungen direkt am Baustein bearbeiten und den Durchlauf verfolgen.
+Connect sources and processing steps, configure each step and follow its execution.
 
-![Visueller Workflow-Editor mit verbundenen Bausteinen](docs/screenshots/workflow.jpg)
+![Visual workflow editor with connected steps](docs/screenshots/workflow.jpg)
 
 <table>
   <tr>
-    <td width="50%"><strong>Agenten</strong><br>Aufträge, Modelle und wiederkehrende Aufgaben an einem Ort.</td>
-    <td width="50%"><strong>Wissensspeicher</strong><br>Dokumente und aufbereitete Inhalte lokal durchsuchen.</td>
+    <td width="50%"><strong>Agents</strong><br>Tasks, models and recurring jobs in one place.</td>
+    <td width="50%"><strong>Knowledge base</strong><br>Search documents and processed content locally.</td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/agents.jpg" alt="Agenten in AgentFlux verwalten"></td>
-    <td><img src="docs/screenshots/knowledge.jpg" alt="Lokaler Wissensspeicher mit Beispieldokumenten"></td>
+    <td><img src="docs/screenshots/agents.jpg" alt="Manage agents in AgentFlux"></td>
+    <td><img src="docs/screenshots/knowledge.jpg" alt="Local knowledge base with sample documents"></td>
   </tr>
 </table>
 
-## Dein erster Workflow
+## Your first workflow
 
-1. Öffne **Vorlagen** und wähle **Daten bereinigen und speichern**. Die Vorlage verwendet synthetische Beispieldaten und braucht kein KI-Modell.
-2. Starte den Workflow und öffne die Ergebnisse im Durchlauf.
-3. Verbinde unter **Modelle** deinen Modellserver, wenn du Dokumente zusammenfassen oder Agenten nutzen möchtest.
-4. Lege unter **Agenten** einen Auftrag an und wähle die erlaubten Quellen und das Modell.
+1. Open **Templates** and choose **Clean and save data**. This template uses synthetic sample data and does not need an AI model.
+2. Start the workflow and open its run results.
+3. Connect your model server under **Models** to summarise documents or use agents.
+4. Create a task under **Agents** and select the allowed sources and model.
 
-Ein Modell ist nicht im Docker-Image enthalten. Du kannst einen vorhandenen lokalen Server oder einen externen Anbieter mit eigenen Zugangsdaten verwenden.
+The Docker image does not include a model. Use an existing local server or an external provider with your own credentials.
 
-| Modellserver auf deinem Rechner | Basis-URL aus dem Container |
+| Model server on your computer | Base URL from the container |
 | :--- | :--- |
 | Ollama | <code>http://host.docker.internal:11434</code> |
-| LM Studio / OpenAI-kompatibel | <code>http://host.docker.internal:1234/v1</code> |
+| LM Studio / OpenAI-compatible | <code>http://host.docker.internal:1234/v1</code> |
 | vLLM | <code>http://host.docker.internal:8000/v1</code> |
 
-Passe Port und Modell-ID an deinen Server an. Der Modellserver muss Verbindungen aus dem Container annehmen können.
+Adjust the port and model ID for your server. The model server must accept connections from the container.
 
-## Betrieb und Daten
+## Operations and data
 
 ~~~sh
-docker compose ps            # Status und Healthcheck
-docker compose logs -f       # Serverausgabe ansehen
-docker compose stop          # Anhalten
-docker compose up -d --wait  # Wieder starten
+docker compose ps            # Status and healthcheck
+docker compose logs -f       # View server output
+docker compose stop          # Stop
+docker compose up -d --wait  # Start again
 ~~~
 
-Workflows, Dokumente, Zugangsdaten und Laufprotokolle bleiben im benannten Volume <code>agentflux-data</code>. Ein Austausch des Containers löscht sie nicht. Sichere das vollständige Volume einschliesslich <code>.vault-key</code>; <code>docker compose down -v</code> löscht das Volume.
+Workflows, documents, credentials and run logs stay in the named <code>agentflux-data</code> volume. Replacing the container does not delete them. Back up the entire volume including <code>.vault-key</code>; <code>docker compose down -v</code> deletes the volume.
 
 > [!IMPORTANT]
-> Die mitgelieferte Konfiguration bindet Port 4310 an localhost. AgentFlux hat keine Anmeldung und ist als Einzelbenutzerinstanz ausgelegt. Für gemeinsam oder öffentlich erreichbaren Betrieb brauchst du eine vorgeschaltete Zugangskontrolle und eine passende Netzwerkkonfiguration.
+> The supplied configuration binds port 4310 to localhost. AgentFlux has no login and is designed for a single user. Shared or public access requires an access-control layer and suitable network configuration.
 
-Cloud-Modellaufrufe und externe HTTP-POST-Schritte brauchen Freigaben in den Einstellungen und im Workflow. HTTP-GET-Anfragen können Angaben in URL und Headern übertragen. Die optionale Maskierung arbeitet mit Regeln und kann sensible Angaben übersehen. Details stehen in der [Installationsanleitung](docs/installation.md#daten-und-grenzen) und den [Betriebshinweisen](docs/operations.md).
+Cloud model calls and external HTTP POST steps require approval in Settings and in the workflow. HTTP GET requests can send information in URLs and headers. Optional redaction uses rules and may miss sensitive information. See the [installation guide](docs/installation.md#data-and-limits) and [operations guide](docs/operations.md).
 
-## Dokumentation und Entwicklung
+## Documentation and development
 
-| Einstieg | Inhalt |
+| Start here | Contents |
 | :--- | :--- |
-| [Docker-Release](https://github.com/davemessew/AgentFlux/releases/latest) | Fertiges Image, Compose-Datei, Quellcode und SHA-256-Prüfsummen |
-| [Release installieren](docs/docker-release.md) | Download, Überprüfung, Start und Update |
-| [Installation und Modelle](docs/installation.md) | Docker, native Installation und Modellanbindung |
-| [Workflows und Agenten](docs/workflows.md) | Editor, Bausteine, Vorlagen, Learnings und Skills |
-| [Betrieb und Konfiguration](docs/operations.md) | Umgebungsvariablen, Importordner, Sicherung und Programme |
+| [Docker release](https://github.com/davemessew/AgentFlux/releases/latest) | Prebuilt image, Compose file, source code and SHA-256 checksums |
+| [Install the release](docs/docker-release.md) | Download, verify, start and update |
+| [Installation and models](docs/installation.md) | Docker, native installation and model connections |
+| [Workflows and agents](docs/workflows.md) | Editor, steps, templates, learnings and skills |
+| [Operations and configuration](docs/operations.md) | Environment variables, import folders, backups and programs |
 
 ~~~text
-src/          Web-Oberfläche und visueller Editor
-server/       API, Agenten, Ausführung und SQLite-Speicherung
-shared/       Workflow-Regeln und Vorlagen
-examples/     Beispiel für einen lokalen Programm-Export
-scripts/      Docker-Release prüfen
-docs/         Bedienung, Betrieb und Screenshots
-website/      Projektwebsite
+src/          Web interface and visual editor
+server/       API, agents, execution and SQLite storage
+shared/       Workflow rules and templates
+examples/     Sample local program export
+scripts/      Docker release checks
+docs/         Usage, operations and screenshots
 ~~~
 
-Für die lokale Entwicklung: Node.js 24+, pnpm 11.25.0, <code>pnpm install --frozen-lockfile</code>, danach <code>pnpm dev</code>.
+For local development: Node.js 24+, pnpm 11.25.0, <code>pnpm install --frozen-lockfile</code>, then <code>pnpm dev</code>.
 
-Den Docker-Test nach einem Build ausführen:
+Run the Docker check after building:
 
 ~~~sh
 docker build -t agentflux:0.2.0 .
 node scripts/smoke-docker.mjs agentflux:0.2.0
 ~~~
 
-Der Test verwendet einen eigenen Container mit eigenem Volume. Er prüft die API, die gebaute Oberfläche, einen Beispieldurchlauf und den Datenerhalt beim Ersetzen des Containers.
+The check uses its own container and volume. It covers the API, built interface, an example run and data persistence when replacing the container.
 
-## Lizenz
+## Licence
 
-[Apache License 2.0](LICENSE). Mitgelieferte Abhängigkeiten und Schriftarten behalten ihre jeweiligen Lizenzen.
+[Apache License 2.0](LICENSE). Bundled dependencies and fonts retain their respective licences.
 
 <div align="center">
 
 <br>
 
-[Release herunterladen](https://github.com/davemessew/AgentFlux/releases/latest) · [Website besuchen](https://agentflux.cloud) · [Issue öffnen](https://github.com/davemessew/AgentFlux/issues)
+[Download release](https://github.com/davemessew/AgentFlux/releases/latest) · [Visit website](https://agentflux.cloud) · [Open an issue](https://github.com/davemessew/AgentFlux/issues)
 
 </div>

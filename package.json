@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@11.25.0",
   "type": "module",
-  "description": "Agentische KI-Plattform für lokale Workflows, eigene Modelle und Automatisierung.",
+  "description": "Agentic AI platform for local workflows, your own models and automation.",
   "license": "Apache-2.0",
   "engines": { "node": ">=24.0.0" },
   "scripts": {

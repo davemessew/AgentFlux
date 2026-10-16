@@ -1,0 +1,24 @@
+.video-workflow fieldset{border:0;padding:0;margin:0;min-width:0}
+.video-workflow .field>span{font-size:12px;display:flex;align-items:center;gap:8px}
+.video-workflow .field small{font-size:11px}
+.video-file{padding:18px;background:var(--feature-gradient);border:1px solid var(--border);border-radius:12px}
+.video-file input{max-width:100%;padding:8px 0;background:transparent}
+.video-preview{display:block;width:100%;max-height:260px;margin-bottom:20px;border-radius:8px;background:var(--navy)}
+.video-notice{font-size:12px;line-height:1.7;color:var(--muted);margin:14px 0;overflow-wrap:anywhere}
+.video-notice ul{padding-left:20px;margin-top:8px}
+.video-consent{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.6;color:var(--soft);margin:18px 0}
+.video-consent input{width:18px;height:18px;flex:none;margin-top:2px;accent-color:var(--blue)}
+.video-error{color:var(--ink);background:var(--tint);padding:12px;border:1px solid var(--border-strong);border-radius:8px;font-size:12px;line-height:1.7}
+.video-progress{display:flex;align-items:center;gap:8px;color:var(--soft);font-size:12px;line-height:1.7;min-height:22px;margin-top:16px}
+.video-result-heading>span{display:flex;align-items:center;gap:8px;color:var(--blue);font-size:12px}
+.video-result-heading h3{font-size:20px;margin-top:14px;overflow-wrap:anywhere}
+.video-result-heading p{font-size:13px;color:var(--soft);line-height:1.7;margin-top:10px}
+.video-steps{list-style:none;padding:0;margin:24px 0}
+.video-steps>li{display:grid;grid-template-columns:50px minmax(0,1fr);gap:14px;padding:16px 0;border-bottom:1px solid var(--border)}
+.video-steps time{color:var(--blue);font-size:12px;font-variant-numeric:tabular-nums;padding-top:2px}
+.video-steps strong{font-size:13px;overflow-wrap:anywhere}
+.video-steps p{font-size:12px;line-height:1.7;color:var(--muted);margin-top:5px;overflow-wrap:anywhere}
+.video-history{font-size:12px;color:var(--soft);line-height:1.7;margin:16px 0 24px;overflow-wrap:anywhere}
+.video-history summary{cursor:pointer;color:var(--blue)}
+.video-history p{margin-top:12px;white-space:pre-wrap}
+@media(max-width:600px){.video-workflow .modal-actions{flex-wrap:wrap}.video-workflow .modal-actions .button{flex:1;justify-content:center}.video-steps>li{gap:8px;grid-template-columns:42px minmax(0,1fr)}}
