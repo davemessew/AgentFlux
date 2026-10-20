@@ -113,7 +113,7 @@ export default function WorkflowStudio({ workflow, onChange, data, currentRun, k
         <button title="Auswahl duplizieren" aria-label="Auswahl duplizieren" disabled={!selectedNode || selectedNode.data.kind === 'trigger'} onClick={duplicateSelected}><Copy size={16}/></button>
         <button title="Auswahl löschen" aria-label="Auswahl löschen" disabled={!selectedNode} onClick={removeSelected}><Trash2 size={16}/></button>
       </div>
-      <ReactFlow nodes={nodes} edges={workflow.edges.map((e: Item) => ({ ...e, type: 'smoothstep', animated: currentRun?.status === 'running', label: e.sourceHandle === 'true' ? 'Ja' : e.sourceHandle === 'false' ? 'Nein' : undefined, style: { stroke: '#829884', strokeWidth: 1.8 } }))} nodeTypes={nodeTypes}
+      <ReactFlow nodes={nodes} edges={workflow.edges.map((e: Item) => ({ ...e, type: 'smoothstep', animated: currentRun?.status === 'running', label: e.sourceHandle === 'true' ? 'Ja' : e.sourceHandle === 'false' ? 'Nein' : undefined, style: { stroke: '#8995b4', strokeWidth: 1.8 } }))} nodeTypes={nodeTypes}
         onNodesChange={changes => { const meaningful = changes.filter(c => c.type !== 'select'); if (!meaningful.length) return; commit(w => { const next = applyNodeChanges(meaningful, w.nodes), ids = new Set(next.map(n => n.id)); return { ...w, nodes: next, edges: w.edges.filter((e: Item) => ids.has(e.source) && ids.has(e.target)) }; }, 'position', meaningful.some(c => c.type === 'remove')); }}
         onNodeDragStart={() => remember(latest.current)}
         onEdgesChange={changes => commit(w => ({ ...w, edges: applyEdgeChanges(changes, w.edges) }), '', changes.some(c => c.type === 'remove'))}
@@ -124,7 +124,7 @@ export default function WorkflowStudio({ workflow, onChange, data, currentRun, k
         onReconnectEnd={() => { reconnecting.current = undefined; }}
         onNodeClick={(_event, node) => { setSelected(node.id); setInspector(true); }} onPaneClick={() => setSelected(null)}
         fitView fitViewOptions={{ padding: 0.2, maxZoom: 0.9 }} minZoom={0.15} maxZoom={1.8} deleteKeyCode={['Backspace', 'Delete']} proOptions={{ hideAttribution: true }}>
-        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#cdd2c8"/><Controls showInteractive={false}/><MiniMap nodeColor={n => ['model', 'agent'].includes(String(n.data.kind)) ? '#b9a7d3' : '#b8cabb'} maskColor="rgba(246,247,241,0.8)" pannable zoomable/>
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#cbd3e8"/><Controls showInteractive={false}/><MiniMap nodeColor={n => ['model', 'agent'].includes(String(n.data.kind)) ? '#b9a2ee' : '#a3b5f7'} maskColor="rgba(246,248,253,0.8)" pannable zoomable/>
       </ReactFlow>
       <button className="inspector-toggle icon-button" aria-label="Schritteinstellungen umschalten" onClick={() => setInspector(!inspector)}><PanelRightOpen size={18}/></button>
       <div className={`canvas-readiness ${issues.length ? 'needs-input' : 'ready'}`} aria-live="polite">{issues.length ? <AlertCircle size={15}/> : <CheckCircle2 size={15}/>}<span>{notice || (issues.length ? `${issues.length} ${issues.length === 1 ? 'Einstellung fehlt' : 'Einstellungen fehlen'}` : 'Zum Start bereit')}</span>{issues.length > 0 && <button onClick={() => { setSelected(issues[0].nodeId || null); setInspector(true); }}>Anzeigen</button>}</div>

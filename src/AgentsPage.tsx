@@ -80,7 +80,7 @@ export default function AgentsPage({ data, notify, refresh, onOpenWorkflow }: Pr
 
   return <div className="page agents-page">
     <div className="page-heading agents-heading">
-      <div><div className="agents-eyebrow"><span className="status-dot"/>Arbeitsbereich · Automatisierung</div><h1>Agenten</h1><p>Erstelle Agenten, die aus Beschreibungen begrenzte Workflows planen, freigegebene Quellen lesen und in deinem Zeitplan arbeiten.</p></div>
+      <div><div className="agents-eyebrow"><span className="status-dot"/>Agentische KI-Plattform</div><h1>Agenten</h1><p>Erstelle Agenten, die aus Beschreibungen begrenzte Workflows planen, freigegebene Quellen lesen und in deinem Zeitplan arbeiten.</p></div>
       <div className="agents-heading-actions"><button className="button" onClick={() => void reload()} disabled={loading}><RotateCcw size={15} className={loading ? 'agents-spin' : ''}/>Aktualisieren</button><button className="button primary" onClick={() => { const draft = freshAgent(); draft.providerId = readyModels[0]?.id || ''; setAgentDraft(draft); }}><Plus size={16}/>Agent erstellen</button></div>
     </div>
     <div className="agents-metrics">

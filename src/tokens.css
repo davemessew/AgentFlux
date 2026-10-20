@@ -1,1 +1,27 @@
-:root{--pine:#1f352b;--green:#668a4b;--lime:#d0edaa;--paper:#f8faf4;--ink:#374b30;--muted:#74836a;--border:#e0e7d6;color-scheme:light}
+/* Colors shared with the AgentFlux website. */
+:root {
+  --navy: #0b1126;
+  --blue: #3d63ff;
+  --blue-hover: #2a49d8;
+  --blue-soft: #dce5ff;
+  --paper: #f6f8fd;
+  --surface: #ffffff;
+  --tint: #eef2fc;
+  --ink: #0b1126;
+  --soft: #39425f;
+  --muted: #5f6886;
+  --border: #d9dfef;
+  --border-strong: #8995b4;
+  --nav-text: #eef2fc;
+  --nav-muted: #acb7d9;
+  --success: #06665f;
+  --success-surface: #e3f5f1;
+  --cyan: #14d6c6;
+  --violet: #8a4dff;
+  --signal-gradient: linear-gradient(100deg, var(--cyan) 0%, var(--blue) 50%, var(--violet) 100%);
+  --action-gradient: linear-gradient(105deg, var(--blue-hover) 0%, var(--blue) 55%, var(--violet) 100%);
+  --action-hover-gradient: linear-gradient(105deg, #233db9 0%, var(--blue-hover) 55%, #703bd5 100%);
+  --feature-gradient: linear-gradient(110deg, rgb(20 214 198 / .10) 0%, rgb(61 99 255 / .08) 50%, rgb(138 77 255 / .12) 100%);
+  --nav-gradient: linear-gradient(160deg, var(--navy) 0%, #142448 56%, #201a44 100%);
+  color-scheme: light;
+}

@@ -19,7 +19,7 @@ LABEL org.opencontainers.image.title="AgentFlux" \
       org.opencontainers.image.description="Visual workflows and local AI agents" \
       org.opencontainers.image.version=$APP_VERSION \
       org.opencontainers.image.revision=$VCS_REF \
-      org.opencontainers.image.source="https://github.com/davemessew/AgentFlow" \
+      org.opencontainers.image.source="https://github.com/davemessew/AgentFlux" \
       org.opencontainers.image.licenses="Apache-2.0"
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4310 AGENTFLUX_DATA_DIR=/app/data
 # Keep the complete pnpm virtual store and its relative symlinks together.
