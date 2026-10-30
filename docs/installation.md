@@ -12,7 +12,7 @@ Open http://localhost:4310. Compose keeps application data in the `agentflux-dat
 
 ## Without Docker
 
-Requires Node.js 24+ and pnpm 11.25.0:
+Requires Node.js 24+ and pnpm 11.25.0. Video analysis also needs `ffmpeg` and `ffprobe` on PATH:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -24,7 +24,7 @@ You can also use `./start.ps1` on Windows or `sh ./start.sh` on macOS/Linux. For
 
 ## Models
 
-AgentFlux connects to a model server; it does not include a model. Add a connection under **Models** and enter an available model ID.
+AgentFlux connects to a language/vision model server. The Docker speech service includes a separate transcription model. Add a connection under **Models** and enter an available model ID.
 
 | Server on the host | Native installation | AgentFlux in Docker |
 | --- | --- | --- |
@@ -36,6 +36,8 @@ The model server must accept connections from the container. External providers 
 ## Files and connections
 
 Supported formats: TXT, MD, CSV, JSON, JSONL, HTML, XML, PDF, DOCX and XLSX. PDFs need readable text; OCR is not included. Imports allow up to 12 MB per file or HTTP response, 500 records per import and 40 files per folder, without recursion.
+
+For XLSX, preview the workbook and choose the sheet and header row. Blank or duplicate headings receive stable column names. Sheet and row references remain attached to imported records. A header row of 0 preserves raw columns.
 
 Folder sources can read `data/inbox`. Set `AGENTFLUX_IMPORT_ROOTS` to allow more directories, separated by semicolons:
 
@@ -66,3 +68,27 @@ Cloud model calls and external HTTP POST require both global and workflow approv
 Credentials use AES-256-GCM. The key is stored beside the database in `data/.vault-key`, so access to the whole data directory also gives access to credentials. Documents, workflows and logs are unencrypted. Back up the database and key together.
 
 For the editor, agents, schedules and execution limits, see [workflows](workflows.md).
+
+## Speech and report folders
+
+Docker configures the speech service automatically. With a native app, start it separately:
+
+```sh
+docker build -t agentflux-speech:0.3.0 services/transcription
+docker run -d --name agentflux-speech -p 127.0.0.1:8090:8090 -v agentflux-models:/models agentflux-speech:0.3.0
+```
+
+In **Settings → Video transcription**, use `http://127.0.0.1:8090/v1`, model `base`, scope `local`. A compatible external service needs explicit audio approval as well as global cloud permission.
+
+Reports default to the data directory's `outbox`. To write to a host folder from Docker, create it and add a writable mount plus an allowed output root:
+
+```yaml
+services:
+  agentflux:
+    environment:
+      AGENTFLUX_OUTPUT_ROOTS: /reports
+    volumes:
+      - ./reports:/reports
+```
+
+Then select `/reports` when setting up the task. Import permissions do not grant output permissions.

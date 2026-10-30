@@ -8,17 +8,19 @@ The browser keeps the current draft; saved workflows live on the server. Export/
 
 ## Agents
 
-Choose a task, model and permitted read-only sources. **Start now** runs planning, execution and learning. An agent node inside a workflow only processes its input; it does not start another planning cycle.
+Use **Create agent** for guided setup, or edit an agent directly. Choose the result, permitted read-only sources, model, output folder and schedule. **Start now** creates a plan on the first run and reuses it on later runs. Changes to the task, sources, model, selected skills or permissions create a new revision. Use **Replan** to request one explicitly. Missing details appear as text questions; answering resumes the task. An agent node inside a workflow only processes its input; it does not start another planning cycle.
 
 Schedules do not overlap runs for the same agent. **Stop** cancels the active cycle without undoing completed writes. Disable the schedule to pause future runs.
 
-Learnings are stored observations linked to a run, not model training. Review, confirm or delete them in the app. Skills are reusable instructions with version history; they contain no executable code and grant no additional permissions. With automatic skill creation enabled, agents can reuse their own unconfirmed suggestions.
+Learnings are stored observations linked to a run, not model training. Review, confirm or delete them in the app. Skills are reusable instructions with version history; they contain no executable code and grant no additional permissions. Only selected, active skills enter execution prompts. Automatically created suggestions need review and activation first.
 
 ## Results
 
 Run details show step status, errors and previews. Download final results as JSON or CSV. Results follow run-history retention; knowledge documents remain until deleted.
 
-Running again repeats the entire workflow, including source reads and writes. Cancellation does not undo completed actions.
+Enable **Only new or changed inputs** to skip inputs already delivered by the same plan revision. Checkpoints advance only after successful delivery. Turn it off to reprocess inputs. Identical report batches reuse their existing directory; changed inputs or plans get a new directory. Cancellation does not undo completed actions.
+
+Configure local delivery for JSON, CSV and Markdown reports. Each batch is published as a complete directory with a manifest. Task reports include source references and leave unsupported owners, deadlines and priorities unresolved. Run details show the destination, files and skipped input count.
 
 ## Limits
 

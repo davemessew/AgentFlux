@@ -1,26 +1,26 @@
-# Install AgentFlux 0.2.0 with Docker
+# Install AgentFlux 0.3.0 with Docker
 
-Requires Docker with Compose and Linux containers. The image targets Linux/amd64 and includes Node.js and the built interface. Connect a model server separately.
+Requires Docker with Compose and Linux containers. The archive contains two Linux/amd64 images: the application with FFmpeg, and a local speech service with Whisper base. Connect a language/vision model server separately. Allow a few GB of free disk space and memory for media processing; your language model needs its own resources.
 
 ## Download and start
 
-Download `agentflux-0.2.0-linux-amd64.tar.gz`, `compose.yaml` and `SHA256SUMS.txt` from [v0.2.0](https://github.com/davemessew/AgentFlux/releases/tag/v0.2.0) into one directory. `INSTALL.md` is an offline copy of these instructions; the source ZIP is optional.
+Download `agentflux-0.3.0-linux-amd64.tar.gz`, `compose.yaml` and `SHA256SUMS.txt` from [v0.3.0](https://github.com/davemessew/AgentFlux/releases/tag/v0.3.0) into one directory. `INSTALL.md` is an offline copy of these instructions; the source ZIP is optional.
 
-Check the files with `sha256sum --check --ignore-missing SHA256SUMS.txt`. In PowerShell, use `Get-FileHash .\agentflux-0.2.0-linux-amd64.tar.gz -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+Check the files with `sha256sum --check --ignore-missing SHA256SUMS.txt`. In PowerShell, use `Get-FileHash .\agentflux-0.3.0-linux-amd64.tar.gz -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ```sh
-docker load -i agentflux-0.2.0-linux-amd64.tar.gz
+docker load -i agentflux-0.3.0-linux-amd64.tar.gz
 docker compose up -d --wait
 docker compose ps
 ```
 
-Open http://localhost:4310. The service should report `healthy`. Free port 4310 or change the port mapping if another service uses it.
+Open http://localhost:4310. Both services should report `healthy`. Free port 4310 or change the port mapping if another service uses it.
 
-The release uses `pull_policy: never`: Docker loads the local image instead of pulling from a registry. After downloading, installation works offline; external connections still need network access.
+The release uses `pull_policy: never`: Docker loads the local images instead of pulling from a registry. After downloading, installation works offline; external connections still need network access.
 
 ## Data and updates
 
-Data lives in the `agentflux-data` volume, prefixed by the Compose project name. Keep the same directory or project name when updating. The container runs as UID 1000.
+Data lives in the `agentflux-data` volume, prefixed by the Compose project name. Keep the same directory or project name when updating. Both containers run as UID 1000. Reports default to `/app/data/outbox`. The additional `agentflux-models` volume caches the bundled speech model; there is no first-run model download.
 
 1. Stop the service and back up the entire volume, including `.vault-key`.
 2. Download and verify the new image, then load it with `docker load -i FILE`.
