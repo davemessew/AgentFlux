@@ -1,8 +1,11 @@
 # Load the image from the GitHub release before starting this file.
 services:
   agentflux:
-    image: agentflux:0.2.0
+    image: agentflux:0.3.0
     pull_policy: never
+    depends_on:
+      speech:
+        condition: service_healthy
     init: true
     ports:
       - "127.0.0.1:4310:4310"
@@ -12,8 +15,18 @@ services:
       # - ./imports:/imports:ro
     environment:
       AGENTFLUX_IMPORT_ROOTS: "${AGENTFLUX_IMPORT_ROOTS:-}"
+      AGENTFLUX_OUTPUT_ROOTS: "${AGENTFLUX_OUTPUT_ROOTS:-}"
+      AGENTFLUX_TRANSCRIPTION_URL: "http://speech:8090/v1"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+  speech:
+    image: agentflux-speech:0.3.0
+    pull_policy: never
+    init: true
+    volumes:
+      - agentflux-models:/models
+    restart: unless-stopped
 volumes:
+  agentflux-models:
   agentflux-data:

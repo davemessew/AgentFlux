@@ -1,16 +1,20 @@
 {
   "name": "agentflux",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "packageManager": "pnpm@11.25.0",
   "type": "module",
   "description": "Agentic AI platform for local workflows, your own models and automation.",
   "license": "Apache-2.0",
-  "engines": { "node": ">=24.0.0" },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "dev": "concurrently -k \"node --watch server/index.mjs\" \"vite --host 127.0.0.1\"",
-    "build": "vite build",
-    "start": "node server/index.mjs"
+    "build": "tsc --noEmit && vite build",
+    "start": "node server/index.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.2.8",

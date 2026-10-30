@@ -1,8 +1,37 @@
-type Workflow = Record<string, any>;
-export const NODE_KINDS: string[];
-export function cleanWorkflow(workflow: Workflow): Workflow;
-export function workflowKey(workflow: Workflow | null | undefined): string;
-export function canConnect(nodes: any[], edges: any[], connection: any, ignoredEdgeId?: string): boolean;
-export function workflowIssues(workflow: Workflow, context?: Workflow): { message: string; nodeId?: string }[];
-export function cloneWorkflow(workflow: Workflow, name?: string): Workflow;
-export function arrangeWorkflow(workflow: Workflow): Workflow;
+import type {
+  WorkflowDefinition,
+  WorkflowNode,
+  WorkflowEdge,
+  WorkflowContext,
+  WorkflowIssue,
+  SourceConfig,
+  NodeConfig,
+  NodeKind,
+} from "./domain";
+export const NODE_KINDS: NodeKind[];
+export function sourceConfig(config?: NodeConfig): SourceConfig;
+export function cleanWorkflow(workflow: WorkflowDefinition): WorkflowDefinition;
+export function workflowKey(
+  workflow: WorkflowDefinition | null | undefined,
+): string;
+export function canConnect(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  connection: {
+    source?: string | null;
+    target?: string | null;
+    sourceHandle?: string | null;
+  },
+  ignoredEdgeId?: string,
+): boolean;
+export function workflowIssues(
+  workflow: WorkflowDefinition,
+  context?: WorkflowContext,
+): WorkflowIssue[];
+export function cloneWorkflow(
+  workflow: WorkflowDefinition,
+  name?: string,
+): WorkflowDefinition;
+export function arrangeWorkflow(
+  workflow: WorkflowDefinition,
+): WorkflowDefinition;

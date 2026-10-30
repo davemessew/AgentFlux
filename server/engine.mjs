@@ -2,6 +2,9 @@ import { list,get,put,uid,now,saveRecords } from './store.mjs';
 import { ingest,redact,complete,normalize } from './connectors.mjs';
 import { NODE_KINDS,cleanWorkflow,workflowIssues } from '../shared/workflow.mjs';
 import { executeAgentStep } from './agents.mjs';
+import { validateDelivery, executionRevision, newInputs, inputKeys, checkpoint, deliver } from './delivery.mjs';
+
+import { TASK_REPORT_PROMPT, taskReport } from './task-reports.mjs';
 
 export let publish=()=>{};
 export function setPublisher(fn){publish=fn;}
@@ -16,6 +19,8 @@ export function validateWorkflow(w){
   for(const key of ['policy','schedule'])if(w[key]!==undefined&&!object(w[key]))throw new Error(`Ungültige Workflow-Einstellung: ${key}.`);
   for(const [value,key] of [[w.policy?.allowCloud,'Cloud-Freigabe'],[w.policy?.redactCloud,'Maskierung'],[w.schedule?.enabled,'Zeitplan']])if(value!==undefined&&typeof value!=='boolean')throw new Error(`${key} muss ein Wahrheitswert sein.`);
   if(!Array.isArray(w.nodes)||w.nodes.length<1||w.nodes.length>40||!Array.isArray(w.edges)||w.edges.length>100)throw new Error('Workflow muss 1 bis 40 Schritte und maximal 100 Verbindungen enthalten.');
+  validateDelivery(w.delivery);
+  if(w.incremental!==undefined&&typeof w.incremental!=='boolean')throw new Error('Incremental mode must be a boolean.');
   const ids=new Set();
   for(const n of w.nodes){
     if(!object(n)||typeof n.id!=='string'||!n.id||n.id.length>120||ids.has(n.id)||!object(n.data)||!NODE_KINDS.includes(n.data.kind))throw new Error('Ungültiger oder doppelter Workflow-Schritt.');
@@ -30,7 +35,11 @@ export function validateWorkflow(w){
     if(c.temperature!==undefined&&(!Number.isFinite(c.temperature)||c.temperature<0||c.temperature>2))throw new Error('Temperatur muss zwischen 0 und 2 liegen.');
     if(c.maxTokens!==undefined&&(!Number.isInteger(c.maxTokens)||c.maxTokens<128||c.maxTokens>16384))throw new Error('Maximale Tokenzahl muss zwischen 128 und 16.384 liegen.');
     if(c.mode!==undefined&&n.data.kind==='model'&&!['batch','per-record'].includes(c.mode))throw new Error('Modellmodus muss batch oder per-record sein.');
-    if(c.mode!==undefined&&n.data.kind==='source'&&!['inline','library'].includes(c.mode))throw new Error('Quellenmodus muss inline oder library sein.');
+    if(n.data.kind==='source') {
+      if(c.mode!==undefined&&!['inline','library','connector'].includes(c.mode))throw new Error('Source mode must be inline, library or connector.');
+      if(['inline','library'].includes(c.mode)&&c.connectorId)throw new Error('Inline and library sources cannot also use a connector.');
+      if((c.mode==='connector'||(!c.mode&&c.connectorId))&&(c.text!==undefined||c.query!==undefined))throw new Error('Connector sources cannot also contain inline text or a library query.');
+    }
     if(n.data.kind==='source'&&c.mode==='inline'&&(typeof c.text!=='string'||c.text.length>1000000))throw new Error('Inline-Quelle benötigt Text mit höchstens 1.000.000 Zeichen.');
     if(c.responsePath!==undefined&&(c.responsePath.length>500||(c.responsePath&&c.responsePath.split('.').some(part=>!part||['__proto__','prototype','constructor'].includes(part)))))throw new Error('Ungültiger Antwortpfad.');
     if(c.direction!==undefined&&!['asc','desc'].includes(c.direction))throw new Error('Sortierrichtung muss asc oder desc sein.');
@@ -51,7 +60,7 @@ function transform(records,c){
   if(c.operation==='limit')return records.slice(0,Math.max(1,Math.min(500,Number(c.limit)||10)));
   if(c.operation==='filter')return records.filter(r=>condition(r,c));
   if(c.operation==='sort'){const direction=c.direction==='desc'?-1:1;return [...records].sort((a,b)=>{const av=fieldValue(a,c.field),bv=fieldValue(b,c.field);if(av==null)return bv==null?0:-direction;if(bv==null)return direction;const an=Number(av),bn=Number(bv);return (Number.isFinite(an)&&Number.isFinite(bn)?an-bn:String(av).localeCompare(String(bv),'de',{numeric:true,sensitivity:'base'}))*direction;});}
-  if(c.operation==='deduplicate'){const seen=new Set();return records.filter(r=>{const key=r.content;if(seen.has(key))return false;seen.add(key);return true;});}
+  if(c.operation==='deduplicate'){const unique=new Map();for(const record of records){const previous=unique.get(record.content);unique.set(record.content,previous?{...previous,metadata:{...previous.metadata,inputKeys:inputKeys([previous,record])}}:record);}return [...unique.values()];}
   if(c.operation==='fields'){let mapping;try{mapping=typeof c.mapping==='string'?JSON.parse(c.mapping):c.mapping;}catch{throw new Error('Feldzuordnung ist kein gültiges JSON.');}if(!object(mapping)||Object.keys(mapping).length>100||Object.values(mapping).some(v=>typeof v!=='string'))throw new Error('Feldzuordnung benötigt höchstens 100 Textpfade.');return records.map(r=>{const data=Object.fromEntries(Object.entries(mapping).map(([k,v])=>[k,fieldValue(r,v)??'']));return {...r,title:String(data.title||r.title),content:JSON.stringify(data,null,2),metadata:{...r.metadata,...data}};});}
   if(c.operation!==undefined&&c.operation!=='clean')throw new Error('Transformationsart wird nicht unterstützt.');
   return records.map(r=>({...r,content:r.content.replace(/\r\n/g,'\n').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim()}));
@@ -72,6 +81,8 @@ export function cancelRun(runId){const run=get('runs',runId);if(!run)return null
 export function resultForRun(runId){return get('runResults',runId);}
 async function execute(w,run,signal,budget){
   const outputs=new Map();const branches=new Map();const completed=new Set();let stored=0;
+  const revision=executionRevision(w,w.nodes.filter(n=>n.data.kind==='source'&&n.data.config.connectorId).map(n=>get('connectors',n.data.config.connectorId)).filter(Boolean),w.nodes.filter(n=>n.data.kind==='model').map(n=>get('providers',n.data.config.providerId)).filter(Boolean));
+  run.revision=revision;
   const update=()=>{put('runs',run);publish('run',run);};
   try {
     while(completed.size<w.nodes.length){
@@ -90,17 +101,18 @@ async function execute(w,run,signal,budget){
           case 'source':
             if(c.mode==='library')output=list('records').filter(r=>!c.query||`${r.title} ${r.content}`.toLowerCase().includes(c.query.toLowerCase())).slice(0,Math.min(500,Number(c.limit)||500));
             else if(c.mode==='inline'){if(typeof c.text!=='string')throw new Error('Inline-Quelle benötigt config.text.');let data=c.text;try{data=JSON.parse(c.text);}catch{}output=normalize(data,node.data.label);}
-            else{const connector=get('connectors',c.connectorId);if(!connector)throw new Error('Bitte eine Datenquelle auswählen.');if(run.trigger==='schedule'&&(connector.type==='program'||(connector.type==='http'&&(connector.config?.method||'GET').toUpperCase()==='POST')))throw new Error('Programme und HTTP-POST müssen manuell gestartet werden; Zeitpläne sind für lesende Quellen vorgesehen.');output=await ingest(connector,input,w.policy,{signal});}break;
+            else{const connector=get('connectors',c.connectorId);if(!connector)throw new Error('Bitte eine Datenquelle auswählen.');if(run.trigger==='schedule'&&(connector.type==='program'||(connector.type==='http'&&(connector.config?.method||'GET').toUpperCase()==='POST')))throw new Error('Programme und HTTP-POST müssen manuell gestartet werden; Zeitpläne sind für lesende Quellen vorgesehen.');output=await ingest(connector,input,w.policy,{signal});}
+            {const total=output.length;output=newInputs(w,revision,node.id,output);step.detail=`${output.length} new or changed · ${total-output.length} already delivered`;run.inputCount=(run.inputCount||0)+output.length;run.skippedCount=(run.skippedCount||0)+total-output.length;}break;
           case 'transform':output=transform(input,c);break;
           case 'condition':{const yes=input.filter(r=>condition(r,c));const no=input.filter(r=>!condition(r,c));branches.set(node.id,{true:yes,false:no});output=input;step.detail=`${yes.length} zutreffend · ${no.length} übrige`;break;}
           case 'redact':{let count=0;output=input.map(r=>redactRecord(r,n=>{count+=n;}));step.detail=`${count} Fundstellen maskiert`;break;}
           case 'model':{
             const provider=get('providers',c.providerId);if(!provider)throw new Error('Bitte ein Modell in diesem Schritt auswählen.');
-            const callsUsed=Number(budget?.callsUsed??budget?.modelCallsUsed)||0;const tokensUsed=Number(budget?.tokensUsed)||0;if(budget&&Number.isFinite(budget.maxModelCalls)&&callsUsed>=budget.maxModelCalls)throw new Error('Modellaufrufbudget des Agentenzyklus ist ausgeschöpft.');if(budget&&Number.isFinite(budget.maxTokens)&&tokensUsed>=budget.maxTokens)throw new Error('Tokenbudget des Agentenzyklus ist ausgeschöpft.');const remainingTokens=budget&&Number.isFinite(budget.maxTokens)?budget.maxTokens-tokensUsed:Infinity;if(remainingTokens<128)throw new Error('Tokenbudget des Agentenzyklus reicht nicht für einen weiteren Modellaufruf.');const modelOptions={temperature:c.temperature??0.2,maxTokens:Math.min(c.maxTokens??2048,remainingTokens),signal};
+            const callsUsed=Number(budget?.callsUsed??budget?.modelCallsUsed)||0;const tokensUsed=Number(budget?.tokensUsed)||0;if(budget&&Number.isFinite(budget.maxModelCalls)&&callsUsed>=budget.maxModelCalls)throw new Error('Modellaufrufbudget des Agentenzyklus ist ausgeschöpft.');if(budget&&Number.isFinite(budget.maxTokens)&&tokensUsed>=budget.maxTokens)throw new Error('Tokenbudget des Agentenzyklus ist ausgeschöpft.');const remainingTokens=budget&&Number.isFinite(budget.maxTokens)?budget.maxTokens-tokensUsed:Infinity;if(remainingTokens<128)throw new Error('Tokenbudget des Agentenzyklus reicht nicht für einen weiteren Modellaufruf.');const modelPrompt=c.outputFormat==='tasks'?`${c.prompt}\n${TASK_REPORT_PROMPT}`:c.prompt;const modelOptions={temperature:c.temperature??0.2,maxTokens:Math.min(c.maxTokens??2048,remainingTokens),signal};
             let responses=[];
-            if(c.mode==='per-record'){if(input.length>50)throw new Error('Pro-Datensatz-Modellmodus ist auf 50 Datensätze pro Schritt begrenzt.');for(let index=0;index<input.length;index++){const record=input[index];checkAbort(signal);const used=Number(budget?.callsUsed??budget?.modelCallsUsed)||0;if(budget&&Number.isFinite(budget.maxModelCalls)&&used>=budget.maxModelCalls)throw new Error('Modellaufrufbudget des Agentenzyklus ist ausgeschöpft.');if(budget){budget.callsUsed=used+1;budget.modelCallsUsed=used+1;}responses.push(await complete(provider,c.prompt,[record],w.policy,modelOptions));if(budget){budget.tokensUsed=(Number(budget.tokensUsed)||0)+responses.at(-1).tokens;if(budget.tokensUsed>budget.maxTokens)throw new Error('Tokenbudget des Agentenzyklus wurde durch diesen Modellaufruf überschritten.');}const rest=budget&&Number.isFinite(budget.maxTokens)?budget.maxTokens-budget.tokensUsed:Infinity;if(rest<128&&index<input.length-1)throw new Error('Tokenbudget des Agentenzyklus reicht nicht für alle Datensätze.');modelOptions.maxTokens=Number.isFinite(rest)?Math.min(c.maxTokens??2048,rest):modelOptions.maxTokens;}}
-            else{if(budget){budget.callsUsed=callsUsed+1;budget.modelCallsUsed=callsUsed+1;}responses=[await complete(provider,c.prompt,input,w.policy,modelOptions)];if(budget){budget.tokensUsed=(Number(budget.tokensUsed)||0)+responses[0].tokens;if(budget.tokensUsed>budget.maxTokens)throw new Error('Tokenbudget des Agentenzyklus wurde durch diesen Modellaufruf überschritten.');}}
-            checkAbort(signal);if(c.mode==='per-record')output=responses.map((response,index)=>normalize({title:c.title||`KI-Ergebnis · ${input[index]?.title||index+1}`,content:response.content,classification:'internal',model:provider.model,sources:[input[index]?.source]},provider.name)[0]);else{const response=responses[0];output=normalize({title:c.title||'KI-Ergebnis',content:response.content,classification:'internal',model:provider.model,sources:input.map(r=>r.source)},provider.name);}step.detail=`${responses.reduce((n,r)=>n+r.tokens,0)} Tokens · ${responses.reduce((n,r)=>n+r.redactions,0)} Maskierungen`;break;
+            if(c.mode==='per-record'){if(input.length>50)throw new Error('Pro-Datensatz-Modellmodus ist auf 50 Datensätze pro Schritt begrenzt.');for(let index=0;index<input.length;index++){const record=input[index];checkAbort(signal);const used=Number(budget?.callsUsed??budget?.modelCallsUsed)||0;if(budget&&Number.isFinite(budget.maxModelCalls)&&used>=budget.maxModelCalls)throw new Error('Modellaufrufbudget des Agentenzyklus ist ausgeschöpft.');if(budget){budget.callsUsed=used+1;budget.modelCallsUsed=used+1;}responses.push(await complete(provider,modelPrompt,[record],w.policy,modelOptions));if(budget){budget.tokensUsed=(Number(budget.tokensUsed)||0)+responses.at(-1).tokens;if(budget.tokensUsed>budget.maxTokens)throw new Error('Tokenbudget des Agentenzyklus wurde durch diesen Modellaufruf überschritten.');}const rest=budget&&Number.isFinite(budget.maxTokens)?budget.maxTokens-budget.tokensUsed:Infinity;if(rest<128&&index<input.length-1)throw new Error('Tokenbudget des Agentenzyklus reicht nicht für alle Datensätze.');modelOptions.maxTokens=Number.isFinite(rest)?Math.min(c.maxTokens??2048,rest):modelOptions.maxTokens;}}
+            else{if(budget){budget.callsUsed=callsUsed+1;budget.modelCallsUsed=callsUsed+1;}responses=[await complete(provider,modelPrompt,input,w.policy,modelOptions)];if(budget){budget.tokensUsed=(Number(budget.tokensUsed)||0)+responses[0].tokens;if(budget.tokensUsed>budget.maxTokens)throw new Error('Tokenbudget des Agentenzyklus wurde durch diesen Modellaufruf überschritten.');}}
+            checkAbort(signal);if(c.outputFormat==='tasks')responses=responses.map((response,index)=>({...response,content:taskReport(response.content,c.mode==='per-record'?[input[index]]:input)}));if(c.mode==='per-record')output=responses.map((response,index)=>normalize({title:c.title||`KI-Ergebnis · ${input[index]?.title||index+1}`,content:response.content,classification:'internal',model:provider.model,sources:[input[index]?.source]},provider.name)[0]);else{const response=responses[0];output=normalize({title:c.title||'KI-Ergebnis',content:response.content,classification:'internal',model:provider.model,sources:input.map(r=>r.source)},provider.name);}step.detail=`${responses.reduce((n,r)=>n+r.tokens,0)} Tokens · ${responses.reduce((n,r)=>n+r.redactions,0)} Maskierungen`;break;
           }
           case 'agent':output=await executeAgentStep({config:c,records:input,policy:w.policy,signal,budget});checkAbort(signal);break;
           case 'store':checkAbort(signal);output=saveRecords(input.map(r=>({...r,metadata:{...r.metadata,workflowId:w.id,runId:run.id}})));stored+=output.length;run.recordCount=stored;publish('records',{count:output.length});break;
@@ -108,11 +120,18 @@ async function execute(w,run,signal,budget){
           default:throw new Error('Schritttyp wird nicht unterstützt.');
         }
         checkAbort(signal);if(output.length>500)throw new Error('Workflow-Schritt erzeugte mehr als 500 Datensätze.');
+        if(['model','agent'].includes(node.data.kind))output=output.map((record,index)=>({...record,metadata:{...record.metadata,inputKeys:inputKeys(c.mode==='per-record'?[input[index]]:input),sources:(c.mode==='per-record'?[input[index]]:input).map(r=>({source:r.source,title:r.title,sheet:r.metadata?.sheet,row:r.metadata?.row}))}}));
         outputs.set(node.id,output);step.status='completed';step.outputCount=output.length;step.preview=output.slice(0,3).map(r=>({title:r.title,content:String(r.content||'').slice(0,1500),source:r.source}));
       }catch(error){step.status=signal.aborted&&String(signal.reason?.message||'').includes('Nutzer')?'cancelled':'failed';step.error=error.message;throw error;}finally{step.durationMs=Date.now()-started;completed.add(node.id);update();}
     }
     const terminal=w.nodes.filter(n=>!w.edges.some(e=>e.source===n.id));const records=terminal.flatMap(n=>outputs.get(n.id)||[]).slice(0,500);
-    run.status='completed';run.recordCount=stored;run.outputCount=records.length;
+    if(terminal.flatMap(n=>outputs.get(n.id)||[]).length>500)throw new Error('Result exceeds the 500-record limit. No delivery was committed.');
+    run.phase='delivering';update();
+    run.delivery=await deliver(w,run,records,revision,signal);
+    checkAbort(signal);
+    put('runResults',{id:run.id,workflowId:run.workflowId,createdAt:now(),records,totalCount:records.length,truncated:false,delivery:run.delivery});
+    checkpoint(w,revision,records);
+    run.phase='completed';run.status='completed';run.recordCount=stored;run.outputCount=records.length;
   }catch(error){run.status=signal.aborted?(String(signal.reason?.message||'').includes('Zeitlimit')?'failed':'cancelled'):'failed';run.error=error.message;}
-  finally{const terminal=w.nodes.filter(n=>!w.edges.some(e=>e.source===n.id));const allRecords=terminal.flatMap(n=>outputs.get(n.id)||[]);const records=allRecords.slice(0,500);if(allRecords.length>500&&run.status==='completed'){run.status='failed';run.error=`Workflow-Ergebnis enthält ${allRecords.length} Datensätze; gespeichert werden höchstens 500.`;}put('runResults',{id:run.id,workflowId:run.workflowId,createdAt:now(),records,totalCount:allRecords.length,truncated:allRecords.length>records.length});run.outputCount=records.length;clearTimeout(activeRuns.get(run.id)?.timeout);activeRuns.delete(run.id);run.finishedAt=now();run.durationMs=Date.now()-Date.parse(run.startedAt);update();}
+  finally{const terminal=w.nodes.filter(n=>!w.edges.some(e=>e.source===n.id));const allRecords=terminal.flatMap(n=>outputs.get(n.id)||[]);const records=allRecords.slice(0,500);if(allRecords.length>500&&run.status==='completed'){run.status='failed';run.error=`Workflow-Ergebnis enthält ${allRecords.length} Datensätze; gespeichert werden höchstens 500.`;}put('runResults',{id:run.id,workflowId:run.workflowId,createdAt:now(),records,totalCount:allRecords.length,truncated:allRecords.length>records.length,delivery:run.delivery});run.outputCount=records.length;clearTimeout(activeRuns.get(run.id)?.timeout);activeRuns.delete(run.id);run.finishedAt=now();run.durationMs=Date.now()-Date.parse(run.startedAt);update();}
 }

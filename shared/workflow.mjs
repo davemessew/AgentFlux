@@ -1,5 +1,9 @@
 export const NODE_KINDS = ['trigger', 'source', 'transform', 'condition', 'redact', 'model', 'agent', 'store', 'output'];
 
+export function sourceConfig(config = {}) {
+  return { ...config, mode: config.mode || 'connector' };
+}
+
 export function cleanWorkflow(workflow) {
   return {
     id: workflow.id,
@@ -8,7 +12,7 @@ export function cleanWorkflow(workflow) {
     category: workflow.category || 'Custom workflow',
     nodes: (workflow.nodes || []).map(n => ({
       id: n.id, type: 'flux', position: { x: n.position?.x, y: n.position?.y },
-      data: { kind: n.data?.kind, label: n.data?.label, config: structuredClone(n.data?.config || {}) }
+      data: { kind: n.data?.kind, label: n.data?.label, config: structuredClone(n.data?.kind === 'source' ? sourceConfig(n.data.config) : n.data?.config || {}) }
     })),
     edges: (workflow.edges || []).map(e => ({
       id: e.id, source: e.source, target: e.target,
@@ -17,6 +21,10 @@ export function cleanWorkflow(workflow) {
     policy: { allowCloud: workflow.policy?.allowCloud === true, redactCloud: workflow.policy?.redactCloud !== false },
     schedule: { enabled: workflow.schedule?.enabled === true, intervalMinutes: Number(workflow.schedule?.intervalMinutes) || 60,
       nextRunAt: workflow.schedule?.nextRunAt || null },
+    incremental: workflow.incremental === true,
+    delivery: workflow.delivery ? structuredClone(workflow.delivery) : null,
+    ...(workflow.agentId ? { agentId: workflow.agentId } : {}),
+    ...(workflow.planRevision ? { planRevision: workflow.planRevision } : {}),
     ...(workflow.updatedAt ? { updatedAt: workflow.updatedAt } : {})
   };
 }

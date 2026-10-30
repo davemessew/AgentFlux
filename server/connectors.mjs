@@ -7,6 +7,7 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { parse } from 'csv-parse/sync';
 import { DATA, INBOX, ROOT, settings, secretGet } from './store.mjs';
+import { spreadsheet } from './spreadsheets.mjs';
 
 export const FORMATS=['.txt','.md','.csv','.json','.jsonl','.html','.xml','.pdf','.docx','.xlsx'];
 const MAX_BYTES=12*1024*1024;
@@ -17,13 +18,13 @@ export function normalize(value, source='Import') {
 }
 // Parse failures may fall back to text; import limit and normalization errors must propagate.
 function normalizeText(text,source) { let value;try{value=JSON.parse(text);}catch{return normalize(text,source);}return normalize(value,source); }
-export async function extract(buffer, filename) {
+export async function extract(buffer, filename, options = {}) {
   if(buffer.length>MAX_BYTES) throw new Error('Datei ist grösser als 12 MB.');
   const ext=extname(filename).toLowerCase(); const source=basename(filename); let text;
   if(!FORMATS.includes(ext)) throw new Error(`Format ${ext || '(ohne Endung)'} wird noch nicht unterstützt.`);
   if(ext==='.pdf') { const { PDFParse }=await import('pdf-parse'); const parser=new PDFParse({data:buffer}); try { text=(await parser.getText()).text; } finally {await parser.destroy();} }
   else if(ext==='.docx') { const mammoth=await import('mammoth'); text=(await mammoth.default.extractRawText({buffer})).value; }
-  else if(ext==='.xlsx') { const ExcelJS=(await import('exceljs')).default; const wb=new ExcelJS.Workbook(); await wb.xlsx.load(buffer); const rows=[]; wb.eachSheet(sheet=>sheet.eachRow((row,index)=>rows.push({sheet:sheet.name,row:index,values:row.values.slice(1)}))); return normalize(rows,source); }
+  else if(ext==='.xlsx') { const { rows }=await spreadsheet(buffer,options); return rows.map(({fields,sheet,row,values})=>({title:`${source} · ${sheet}:${row}`,content:JSON.stringify(fields,null,2),source,classification:'internal',metadata:{...fields,fields,filename:source,sheet,row,values}})); }
   else if(ext==='.json') return normalize(JSON.parse(buffer.toString('utf8')),source);
   else if(ext==='.jsonl') return normalize(buffer.toString('utf8').split(/\r?\n/).filter(Boolean).map(line=>JSON.parse(line)),source);
   else if(ext==='.csv') { const raw=buffer.toString('utf8'); const first=raw.split(/\r?\n/)[0]; const delimiter=(first.match(/;/g)||[]).length>(first.match(/,/g)||[]).length?';':','; return normalize(parse(raw,{columns:true,skip_empty_lines:true,bom:true,delimiter}),source); }
@@ -76,18 +77,19 @@ export async function programs() {
   try { return JSON.parse(await readFile(join(DATA,'programs.json'),'utf8')); }
   catch(error) { if(error.code!=='ENOENT') throw error; return { 'demo-export':{name:'Beispiel-Export (JSON)',executable:process.execPath,args:[join(ROOT,'examples','export-records.mjs')]} }; }
 }
-async function folderRead(path,signal) {
+async function folderRead(path,signal,options={}) {
   const roots=[INBOX,...(process.env.AGENTFLUX_IMPORT_ROOTS||'').split(';').filter(Boolean)];
   const actual=await realpath(resolve(path || INBOX)); let allowed=false;
   for(const root of roots){let realRoot;try{realRoot=await realpath(root);}catch{continue;}const rel=relative(realRoot,actual);if(rel===''||(!rel.startsWith('..')&&!isAbsolute(rel)))allowed=true;}
   if(!allowed)throw new Error('Ordner liegt ausserhalb der freigegebenen Importpfade. AGENTFLUX_IMPORT_ROOTS konfigurieren.');
-  const files=(await readdir(actual,{withFileTypes:true})).filter(e=>e.isFile()&&FORMATS.includes(extname(e.name).toLowerCase())).slice(0,40);
-  const records=[];for(const entry of files){if(signal?.aborted)throw signal.reason instanceof Error?signal.reason:new Error('Lauf abgebrochen.');const target=join(actual,entry.name);const canonical=await realpath(target);const rel=relative(actual,canonical);if(rel.startsWith('..')||isAbsolute(rel))continue;if((await stat(canonical)).size>MAX_BYTES)throw new Error(`${entry.name}: maximal 12 MB.`);records.push(...await extract(await readFile(canonical),entry.name));}
+  const files=(await readdir(actual,{withFileTypes:true})).filter(e=>e.isFile()&&FORMATS.includes(extname(e.name).toLowerCase()));
+  if(files.length>40)throw new Error('The folder contains more than 40 supported files. Split the source so no inputs are silently skipped.');
+  const records=[];for(const entry of files){if(signal?.aborted)throw signal.reason instanceof Error?signal.reason:new Error('Lauf abgebrochen.');const target=join(actual,entry.name);const canonical=await realpath(target);const rel=relative(actual,canonical);if(rel.startsWith('..')||isAbsolute(rel))continue;if((await stat(canonical)).size>MAX_BYTES)throw new Error(`${entry.name}: maximal 12 MB.`);records.push(...await extract(await readFile(canonical),entry.name,options));}
   if(records.length>500)throw new Error('Ordner enthält mehr als 500 Datensätze. Bitte eingrenzen.');return records;
 }
 export async function ingest(connector, input=[], policy={}, options={}) {
   const c=connector.config || {};
-  if(connector.type==='folder')return folderRead(c.path,options.signal);
+  if(connector.type==='folder')return folderRead(c.path,options.signal,c);
   if(connector.type==='text')return normalizeText(c.text || '',connector.name);
   if(connector.type==='http') {
     const local=await localUrl(c.url); const method=(c.method || 'GET').toUpperCase(); if(!['GET','POST'].includes(method))throw new Error('Unterstützte Methoden: GET, POST.');
@@ -111,7 +113,7 @@ export async function ingest(connector, input=[], policy={}, options={}) {
   throw new Error('Unbekannter Anschlusstyp.');
 }
 export async function complete(provider, prompt, records, policy={}, options={}) {
-  const external=provider.scope==='cloud'; const data=records.map(r=>({title:r.title,content:r.content,source:r.source}));
+  const external=provider.scope==='cloud'; const data=records.map((r,index)=>({reference:`source-${index+1}`,title:r.title,content:r.content,source:r.source,provenance:{sheet:r.metadata?.sheet,row:r.metadata?.row}}));
   const images=options.images||[];
   if(images.length&&external&&options.imageConsent!==true)throw new Error('Der Versand unmaskierter Bilder an das Cloud-Modell benötigt eine ausdrückliche Freigabe.');
   let instruction=String(prompt || 'Fasse die Dokumente präzise zusammen. Nenne die Quellen und offene Fragen.');let redactions=0;

@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { writeFileSync } from 'node:fs';
 
-const image = process.argv[2] || 'agentflux:0.2.0';
+const image = process.argv[2] || 'agentflux:0.3.0';
 const keep = process.argv.includes('--keep');
 const reportIndex = process.argv.indexOf('--report');
 const reportPath = reportIndex >= 0 ? process.argv[reportIndex + 1] : null;
@@ -52,7 +52,7 @@ try {
   docker('volume', 'create', volume);
   start();
   const health = await until(() => api('/api/health'), 'HTTP readiness');
-  assert.equal(health.version, '0.2.0');
+  assert.equal(health.version, '0.3.0');
   assert.equal(health.name, 'AgentFlux');
   checks.push('HTTP health and release version');
   const html = await (await fetch(url)).text();
@@ -70,6 +70,9 @@ try {
   checks.push('Fresh data volume, sample workflows and templates');
   assert.equal(docker('exec', id, 'id', '-u'), '1000');
   checks.push('Container runs as non-root');
+  assert.match(docker('exec', id, 'ffmpeg', '-version'), /ffmpeg version/);
+  assert.match(docker('exec', id, 'ffprobe', '-version'), /ffprobe version/);
+  checks.push('FFmpeg and ffprobe are included');
   await until(() => docker('inspect', '--format', '{{.State.Health.Status}}', id) === 'healthy', 'Docker healthcheck');
   checks.push('Docker reports healthy');
   const run = await api('/api/workflows/document-flow/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });

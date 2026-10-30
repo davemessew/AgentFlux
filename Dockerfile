@@ -12,8 +12,9 @@ FROM dependencies AS production-dependencies
 RUN pnpm install --prod --frozen-lockfile
 
 FROM node:24-bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-ARG APP_VERSION=0.2.0
+ARG APP_VERSION=0.3.0
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="AgentFlux" \
       org.opencontainers.image.description="Visual workflows and local AI agents" \

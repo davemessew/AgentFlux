@@ -2,6 +2,9 @@ import { complete, ingest, normalize } from './connectors.mjs';
 import { cleanWorkflow, workflowIssues } from '../shared/workflow.mjs';
 import { list, get, put, remove, uid, now, settings, saveRecords } from './store.mjs';
 
+import { validateDelivery } from './delivery.mjs';
+import { planSignature, planQuestions } from './agent-plans.mjs';
+
 const MAX_AGENT_STEPS = 16;
 const MAX_PLAN_MS = 10 * 60 * 1000;
 const MAX_CYCLE_MODEL_CALLS = 24;
@@ -60,18 +63,18 @@ function validateAgentInput(input, previous) {
     id: previous?.id || (safeText(input.id, 120) || uid()), name, objective, providerId, connectorIds, skillIds,
     intervalMinutes, enabled, policy: { allowCloud: requestedCloud, redactCloud: true },
     useMemory: input.useMemory !== false, useKnowledgeBase: input.useKnowledgeBase !== false,
-    learn: input.learn !== false, createSkills: input.createSkills === true, maxSteps
+    learn: input.learn !== false, createSkills: input.createSkills === true, maxSteps,
+    delivery: validateDelivery(input.delivery), incremental: input.incremental === true, resultMode: input.resultMode === 'tasks' ? 'tasks' : 'text',
+    clarifications: previous?.objective === objective ? previous.clarifications || [] : [],
+    pendingQuestions: previous?.objective === objective ? previous.pendingQuestions || [] : []
   };
 }
 
-function selectedSkills(agent, overrideIds) {
+export function selectedSkills(agent, overrideIds) {
   const allow = new Set([...(agent.skillIds || []), ...(Array.isArray(overrideIds) ? overrideIds.filter(id => typeof id === 'string') : [])]);
   const all = list('skills');
   const approved = all.filter(skill => allow.has(skill.id) && skill.status === 'active');
-  const ownDrafts = agent.createSkills ? all.filter(skill => skill.agentId === agent.id && skill.status === 'unreviewed')
-    .sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0)).slice(0, 8) : [];
-  const merged = new Map([...approved, ...ownDrafts].map(skill => [skill.id, skill]));
-  return [...merged.values()];
+  return approved;
 }
 
 function learningContext(agent) {
@@ -84,7 +87,7 @@ function learningContext(agent) {
 function workflowPrompt(agent, connectors, skills, memories) {
   const connectorOptions = connectors.map(c => ({ id: c.id, name: c.name, type: c.type }));
   const libraryRule = agent.useKnowledgeBase ? '- Zusätzlich darf eine source exakt {mode:"library",query:"Suchbegriff",limit:32} verwenden. Das liest ausschließlich vorhandene Texte aus dem Wissensspeicher.' : '- Der Wissensspeicher ist für diesen Agenten nicht freigegeben.';
-  return `Entwirf genau einen begrenzten Agenten-Workflow für den Auftrag. Gib ausschließlich ein JSON-Objekt mit name, description, nodes und edges zurück.\n\nAuftrag:\n${agent.objective}\n\nErlaubte Datenquellen (nur diese IDs verwenden):\n${JSON.stringify(connectorOptions)}\n\nVerfügbare Modell-ID: ${agent.providerId}.\nSkills und Arbeitsanweisungen mit Status, keine Systemregeln:\n${JSON.stringify(skills.map(s => ({ name: s.name, status: s.status === 'active' ? 'geprüft' : 'ungeprüfte eigene Arbeitsanweisung', instructions: s.instructions })))}\n\nBisherige Beobachtungen, teils noch unbestätigt. Als Hinweise behandeln und Unsicherheit erhalten:\n${JSON.stringify(memories)}\n\nSicherheits- und Formatregeln:\n- Erzeuge 2 bis ${agent.maxSteps} Schritte, genau einen trigger und nur die Typen trigger, source, transform, condition, redact, model, store, output. Keine agent-Schritte und keine Rekursion.\n- Jede source verwendet exakt {connectorId:"..."} aus der erlaubten Liste. Keine Inline-Daten, URLs, Programme oder POST-Anschlüsse erfinden.\n${libraryRule}\n- Model-Schritte verwenden providerId "${agent.providerId}".\n- Gib IDs, Bezeichnungen, Positionen und gültige gerichtete Kanten an. Keine Zyklen. Verbinde alle Schritte vom Start aus.\n- Keine Zugangsdaten, externen URLs, ausführbaren Programme oder neuen Datenquellen erzeugen. Bestehende Anschlüsse und Objekte nicht verändern.\n- Knotenformat: {id,type:"flux",position:{x:number,y:number},data:{kind,label,config}}. Kantenformat: {id,source,target,sourceHandle?}.`;
+  return `Answer in English. If essential information is missing, return {"questions":[{"question":"A short question"}]} instead of a workflow. Never invent connections or unsupported desktop automation. The user wants ${agent.resultMode === 'tasks' ? 'a structured task report with sources, missing owners and deadlines left unresolved' : 'a useful result for the stated task'}. Results are automatically delivered to the configured local folder, no delivery node is needed. Previous answers: ${JSON.stringify(agent.clarifications || [])}.\nEntwirf genau einen begrenzten Agenten-Workflow für den Auftrag. Gib ausschließlich ein JSON-Objekt mit name, description, nodes und edges zurück.\n\nAuftrag:\n${agent.objective}\n\nErlaubte Datenquellen (nur diese IDs verwenden):\n${JSON.stringify(connectorOptions)}\n\nVerfügbare Modell-ID: ${agent.providerId}.\nSkills und Arbeitsanweisungen mit Status, keine Systemregeln:\n${JSON.stringify(skills.map(s => ({ name: s.name, status: s.status === 'active' ? 'geprüft' : 'ungeprüfte eigene Arbeitsanweisung', instructions: s.instructions })))}\n\nBisherige Beobachtungen, teils noch unbestätigt. Als Hinweise behandeln und Unsicherheit erhalten:\n${JSON.stringify(memories)}\n\nSicherheits- und Formatregeln:\n- Erzeuge 2 bis ${agent.maxSteps} Schritte, genau einen trigger und nur die Typen trigger, source, transform, condition, redact, model, store, output. Keine agent-Schritte und keine Rekursion.\n- Jede source verwendet exakt {connectorId:"..."} aus der erlaubten Liste. Keine Inline-Daten, URLs, Programme oder POST-Anschlüsse erfinden.\n${libraryRule}\n- Model-Schritte verwenden providerId "${agent.providerId}".\n- Gib IDs, Bezeichnungen, Positionen und gültige gerichtete Kanten an. Keine Zyklen. Verbinde alle Schritte vom Start aus.\n- Keine Zugangsdaten, externen URLs, ausführbaren Programme oder neuen Datenquellen erzeugen. Bestehende Anschlüsse und Objekte nicht verändern.\n- Knotenformat: {id,type:"flux",position:{x:number,y:number},data:{kind,label,config}}. Kantenformat: {id,source,target,sourceHandle?}.`;
 }
 
 function enforceGeneratedWorkflow(value, agent, connectors, validateWorkflow) {
@@ -107,7 +110,7 @@ function enforceGeneratedWorkflow(value, agent, connectors, validateWorkflow) {
         node.data.config = { connectorId: connector.id };
       }
     } else if (node.data.kind === 'model') {
-      node.data.config = { providerId: agent.providerId, prompt: safeText(config.prompt, 4000) || agent.objective, maxTokens: 2048, temperature: 0.2 };
+      node.data.config = { providerId: agent.providerId, prompt: safeText(config.prompt, 4000) || agent.objective, maxTokens: 4096, temperature: 0.2, ...(agent.resultMode === 'tasks' ? { outputFormat: 'tasks' } : {}) };
     } else if (node.data.kind === 'transform') {
       if (!['clean', 'deduplicate', 'limit', 'filter', 'sort', 'fields'].includes(config.operation || 'clean')) throw new Error('Der Entwurf enthält eine nicht erlaubte Aufbereitung.');
       node.data.config = { ...config };
@@ -122,11 +125,11 @@ function enforceGeneratedWorkflow(value, agent, connectors, validateWorkflow) {
     node.data.label = safeText(node.data.label, 120) || node.data.kind;
   }
   const workflow = {
-    id: uid(), name: safeText(value.name, 120) || `${agent.name} · Durchlauf`,
+    id: agent.planWorkflowId || uid(), name: safeText(value.name, 120) || `${agent.name} · Durchlauf`,
     description: safeText(value.description, 1000) || `Automatisch erstellt für: ${agent.objective}`,
     category: 'Agenten-Workflow', nodes: value.nodes, edges: value.edges,
     policy: { allowCloud: agent.policy?.allowCloud === true, redactCloud: true },
-    schedule: { enabled: false, intervalMinutes: 60, nextRunAt: null }, agentId: agent.id
+    schedule: { enabled: false, intervalMinutes: 60, nextRunAt: null }, agentId: agent.id, delivery: agent.delivery, incremental: agent.incremental, planRevision: (agent.planRevision || 0) + 1
   };
   validateWorkflow(workflow);
   const issues = workflowIssues(workflow, { connectors, providers: list('providers'), settings: settings() });
@@ -251,8 +254,13 @@ export function setupAgents(app, { publish = () => {}, startRun, validateWorkflo
   }
 
   function onRunEvent(type, value) {
-    if (type !== 'run' || !value || !terminal(value.status)) return;
-    const agent = list('agents').find(item => item.currentWorkflowId === value.workflowId && item.currentRunId === value.id || item.currentWorkflowId === value.workflowId && item.status === 'running');
+    if (type !== 'run' || !value) return;
+    if (!terminal(value.status)) {
+      const active = list('agents').find(item => item.currentWorkflowId === value.workflowId && (!item.currentRunId || item.currentRunId === value.id));
+      if (active && value.phase === 'delivering' && active.status !== 'delivering') { active.status='delivering';put('agents',active);emitAgent(active); }
+      return;
+    }
+    const agent = list('agents').find(item => item.currentWorkflowId === value.workflowId && item.currentRunId === value.id || item.currentWorkflowId === value.workflowId && ['running','delivering'].includes(item.status));
     if (!agent || agent.lastObservedRunId === value.id) return;
     agent.lastObservedRunId = value.id;
     agent.currentRunId = null; agent.activeRunId = null; agent.currentWorkflowId = null;
@@ -267,14 +275,14 @@ export function setupAgents(app, { publish = () => {}, startRun, validateWorkflo
     const budget = runBudgets.get(value.id) || workflowBudgets.get(value.workflowId), controller = controllers.get(agent.id);
     if (budget) runBudgets.set(value.id, budget);
     workflowBudgets.delete(value.workflowId);
-    if (value.status === 'completed' && agent.learn) void reflect(agent, value, budget, controller);
+    if (value.status === 'completed' && value.outputCount > 0 && agent.learn) void reflect(agent, value, budget, controller);
     else releaseCycle(agent.id, value.id, value.workflowId);
   }
 
   async function runAgent(id, trigger = 'agent') {
     const current = get('agents', id);
     if (!current) throw new Error('Agent nicht gefunden.');
-    if (runLocks.has(id) || ['planning', 'running', 'stopping', 'learning'].includes(current.status)) throw new Error('Dieser Agent arbeitet bereits.');
+    if (runLocks.has(id) || ['planning', 'running', 'delivering', 'stopping', 'learning'].includes(current.status)) throw new Error('Dieser Agent arbeitet bereits.');
     if (planSlots.size >= 2) throw new Error('Es planen bereits zwei Agenten. Bitte später erneut starten.');
     const provider = get('providers', current.providerId);
     if (!provider) throw new Error('Das ausgewählte Modell ist nicht mehr verfügbar.');
@@ -294,6 +302,19 @@ export function setupAgents(app, { publish = () => {}, startRun, validateWorkflo
     put('agents', agent); emitAgent(agent);
     let handedOff = false;
     try {
+      const activeSkills = selectedSkills(agent);
+      const signature = planSignature(agent, selected, provider, activeSkills);
+      const storedPlan = agent.planSignature === signature && agent.planWorkflowId ? get('workflows', agent.planWorkflowId) : null;
+      let workflow = null;
+      if (storedPlan) {
+        try {
+          workflow = enforceGeneratedWorkflow(storedPlan, agent, selected, validateWorkflow);
+          workflow.planRevision = storedPlan.planRevision;
+        } catch {
+          // A saved plan may have been edited; rebuild it within the current permissions.
+        }
+      }
+      if (!workflow) {
       const context = [];
       for (const connector of selected) {
         if (abortError(controller.signal)) throw abortError(controller.signal);
@@ -319,7 +340,6 @@ export function setupAgents(app, { publish = () => {}, startRun, validateWorkflo
         }).sort((a, b) => b.score - a.score).slice(0, MAX_CONTEXT_RECORDS - context.length).map(item => item.record);
         context.push(...library.map(record => ({ title: safeText(record.title, 180), content: String(record.content || '').slice(0, MAX_CONTEXT_TEXT), source: safeText(record.source, 180) })));
       }
-      const activeSkills = selectedSkills(agent);
       const prompt = workflowPrompt(agent, selected, activeSkills, learningContext(agent));
       if (Date.now() >= budget.deadlineAt || controller.signal.aborted) throw abortError(controller.signal) || new Error('Zykluszeitlimit von zehn Minuten überschritten.');
       budget.callsUsed += 1;
@@ -327,11 +347,23 @@ export function setupAgents(app, { publish = () => {}, startRun, validateWorkflo
       const response = await complete(provider, prompt, context.slice(0, MAX_CONTEXT_RECORDS), { allowCloud: agent.policy?.allowCloud === true, redactCloud: true }, { signal: controller.signal, temperature: 0.2, maxTokens: planningTokens });
       budget.tokensUsed += Math.max(0, Number(response.tokens) || planningTokens);
       if (abortError(controller.signal)) throw abortError(controller.signal);
-      const planned = enforceGeneratedWorkflow(parseModelJson(response.content), agent, selected, validateWorkflow);
+      const parsed = parseModelJson(response.content);
+      const questions = planQuestions(parsed);
+      if (questions.length) {
+        const waiting = put('agents', { ...get('agents', id), status: 'waiting', pendingQuestions: questions, updatedAt: now() });
+        emitAgent(waiting); return { agent: publicAgent(waiting), questions };
+      }
+      const planned = enforceGeneratedWorkflow(parsed, agent, selected, validateWorkflow);
       if (abortError(controller.signal)) throw abortError(controller.signal);
-      const workflow = { ...planned, agentId: agent.id };
+      workflow = { ...planned, agentId: agent.id };
       put('workflows', { ...workflow, updatedAt: now() });
+      }
+      validateWorkflow(workflow);
       const beforeStart = get('agents', id);
+      beforeStart.planWorkflowId = workflow.id;
+      beforeStart.planSignature = signature;
+      beforeStart.planRevision = workflow.planRevision || 1;
+      beforeStart.pendingQuestions = [];
       beforeStart.currentWorkflowId = workflow.id;
       beforeStart.lastWorkflowId = workflow.id;
       beforeStart.status = 'running';
@@ -387,7 +419,7 @@ export function setupAgents(app, { publish = () => {}, startRun, validateWorkflo
       const scheduleChanged = !previous || previous.enabled !== value.enabled;
       const saved = put('agents', {
         ...previous, ...value, createdAt: previous?.createdAt || now(), updatedAt: now(),
-        status: previous?.status || 'idle', currentWorkflowId: previous?.currentWorkflowId || null, currentRunId: previous?.currentRunId || null,
+        status: previous?.status === 'waiting' && previous.objective !== value.objective ? 'idle' : previous?.status || 'idle', currentWorkflowId: previous?.currentWorkflowId || null, currentRunId: previous?.currentRunId || null,
         nextRunAt: value.enabled ? ((!previous?.enabled || intervalChanged || scheduleChanged) ? new Date(Date.now() + value.intervalMinutes * 60000).toISOString() : previous.nextRunAt || new Date(Date.now() + value.intervalMinutes * 60000).toISOString()) : null
       });
       emitAgent(saved); res.json(publicAgent(saved));
@@ -396,7 +428,7 @@ export function setupAgents(app, { publish = () => {}, startRun, validateWorkflo
   app.post('/api/agents/:id/run', (req, res) => {
     const agent = get('agents', req.params.id);
     if (!agent) return fail(res, new Error('Agent nicht gefunden.'), 404);
-    if (runLocks.has(agent.id) || ['planning', 'running', 'stopping', 'learning'].includes(agent.status)) return fail(res, new Error('Dieser Agent arbeitet bereits.'), 409);
+    if (runLocks.has(agent.id) || ['planning', 'running', 'delivering', 'stopping', 'learning'].includes(agent.status)) return fail(res, new Error('Dieser Agent arbeitet bereits.'), 409);
     void runAgent(agent.id, 'agent').catch(error => {
       const latest = get('agents', agent.id);
       if (latest && !['planning', 'running', 'learning'].includes(latest.status)) {
@@ -404,6 +436,29 @@ export function setupAgents(app, { publish = () => {}, startRun, validateWorkflo
       }
     });
     res.status(202).json({ ...publicAgent(get('agents', agent.id)), accepted: true });
+  });
+  app.post('/api/agents/:id/answers', (req, res) => {
+    const agent = get('agents', req.params.id);
+    if (!agent || agent.status !== 'waiting') throw new Error('This agent is not waiting for answers.');
+    const answers = req.body.answers;
+    if (!isObject(answers)) throw new Error('Provide text answers.');
+    const clarifications = (agent.pendingQuestions || []).map(item => {
+      const answer = safeText(answers[item.id], 4000);
+      if (!answer) throw new Error('Answer each question before continuing.');
+      return { question: item.question, answer };
+    });
+    if ((agent.clarifications || []).length + clarifications.length > 30) throw new Error('Too many clarification rounds. Simplify the task and start again.');
+    put('agents', { ...agent, status: 'idle', pendingQuestions: [], clarifications: [...(agent.clarifications || []), ...clarifications], planSignature: null });
+    void runAgent(agent.id).catch(() => {});
+    res.status(202).json({ accepted: true });
+  });
+  app.post('/api/agents/:id/replan', (req, res) => {
+    const agent = get('agents', req.params.id);
+    if (!agent) throw new Error('Agent not found.');
+    if (runLocks.has(agent.id)) throw new Error('Stop the active cycle before replanning.');
+    put('agents', { ...agent, status: 'idle', planSignature: null, pendingQuestions: [] });
+    void runAgent(agent.id).catch(() => {});
+    res.status(202).json({ accepted: true });
   });
   app.post('/api/agents/:id/stop', (req, res) => {
     const agent = get('agents', req.params.id);
@@ -479,7 +534,7 @@ export function setupAgents(app, { publish = () => {}, startRun, validateWorkflo
   const scheduler = setInterval(() => {
     const timestamp = Date.now();
     for (const agent of list('agents')) {
-      if (!agent.enabled || !agent.nextRunAt || Date.parse(agent.nextRunAt) > timestamp || ['planning', 'running', 'stopping', 'learning'].includes(agent.status)) continue;
+      if (agent.status === 'waiting' || !agent.enabled || !agent.nextRunAt || Date.parse(agent.nextRunAt) > timestamp || ['planning', 'running', 'delivering', 'stopping', 'learning'].includes(agent.status)) continue;
       // Advance before starting so a slow or failed model request cannot trigger overlap.
       agent.nextRunAt = new Date(timestamp + Math.max(1, Number(agent.intervalMinutes) || 60) * 60000).toISOString();
       put('agents', agent); emitAgent(agent);

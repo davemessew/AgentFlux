@@ -2,6 +2,9 @@ services:
   agentflux:
     image: agentflux:local
     build: .
+    depends_on:
+      speech:
+        condition: service_healthy
     init: true
     ports:
       - "127.0.0.1:4310:4310"
@@ -12,8 +15,18 @@ services:
     environment:
       # Container paths; separate multiple roots with a semicolon.
       AGENTFLUX_IMPORT_ROOTS: "${AGENTFLUX_IMPORT_ROOTS:-}"
+      AGENTFLUX_OUTPUT_ROOTS: "${AGENTFLUX_OUTPUT_ROOTS:-}"
+      AGENTFLUX_TRANSCRIPTION_URL: "http://speech:8090/v1"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+  speech:
+    image: agentflux-speech:0.3.0
+    build: ./services/transcription
+    init: true
+    volumes:
+      - agentflux-models:/models
+    restart: unless-stopped
 volumes:
+  agentflux-models:
   agentflux-data:
