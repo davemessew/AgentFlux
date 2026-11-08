@@ -98,6 +98,10 @@ docker compose up --build -d --wait
 
 </details>
 
+## One-Click Deploy
+
+[![Deploy on RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/AgentFlux/)
+
 ## A look inside
 
 The screenshots show the interface included in v0.3.0, using sample data.
